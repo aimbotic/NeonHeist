@@ -98,6 +98,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		match event.physical_keycode:
 			KEY_SPACE:
 				player.try_dash()
+			KEY_J:
+				player.try_weapon_attack()
 			KEY_E:
 				_try_hack()
 			KEY_1:
@@ -129,7 +131,9 @@ func _start_run() -> void:
 	player = PlayerScene.new()
 	add_child(player)
 	player.position = vault_data["spawn"]
+	player.set_maze_geometry(vault_data["rooms"], vault_data["corridors"])
 	player.dash_used.connect(_on_player_dash)
+	player.weapon_slashed.connect(_on_player_weapon_slashed)
 	player.player_damaged.connect(_on_player_damaged)
 	player.player_down.connect(_on_player_down)
 
@@ -231,6 +235,22 @@ func _on_player_dash() -> void:
 	director.add_heat(0.03)
 	vfx_layer.trail_pop(player.global_position, Color(0.25, 0.95, 1.0))
 
+func _on_player_weapon_slashed(origin: Vector2, direction: Vector2, slash_range: float, arc: float, damage: float) -> void:
+	director.add_heat(0.025)
+	vfx_layer.trail_pop(origin + direction * 62.0, Color(1.0, 0.18, 0.82))
+
+	for enemy in enemies:
+		if not is_instance_valid(enemy):
+			continue
+
+		var to_enemy: Vector2 = enemy.global_position - origin
+		if to_enemy.length() > slash_range:
+			continue
+		if abs(direction.angle_to(to_enemy.normalized())) > arc * 0.5:
+			continue
+
+		enemy.take_damage(damage)
+
 func _on_player_damaged(amount: float) -> void:
 	director.add_heat(0.18)
 	camera.offset = Vector2(randf_range(-10.0, 10.0), randf_range(-8.0, 8.0))
@@ -255,6 +275,7 @@ func _on_lockdown_started() -> void:
 func _configure_input() -> void:
 	var mappings := {
 		"dash": KEY_SPACE,
+		"attack": KEY_J,
 		"hack": KEY_E,
 		"program_1": KEY_1,
 		"program_2": KEY_2,

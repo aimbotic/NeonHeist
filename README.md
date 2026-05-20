@@ -19,6 +19,7 @@ A Godot 4 prototype for an offline-first cyberpunk roguelike infiltration game. 
 
 - Move: WASD, arrow keys, or touch-drag
 - Dash: Space
+- Weapon slash: J or left mouse
 - Hack: E near a square node
 - Program 1, EMP Blast: 1
 - Program 2, Chain Lightning: 2
