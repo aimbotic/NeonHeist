@@ -11,13 +11,13 @@ var acceleration := 2600.0
 var dash_speed := 1180.0
 var dash_duration := 0.13
 var dash_cooldown := 0.9
-var weapon_range := 96.0
-var weapon_arc := 1.18
+var weapon_range := 128.0
+var weapon_arc := 2.35
 var weapon_damage := 50.0
-var weapon_windup_time := 0.12
-var weapon_active_time := 0.14
-var weapon_recovery_time := 0.26
-var weapon_cooldown := 0.52
+var weapon_windup_time := 0.0
+var weapon_active_time := 0.09
+var weapon_recovery_time := 0.22
+var weapon_cooldown := 0.34
 var max_health := 100.0
 var health := 100.0
 var invulnerable := false
@@ -100,10 +100,11 @@ func try_weapon_attack() -> void:
 	if _weapon_cooldown_remaining > 0.0:
 		return
 	_weapon_cooldown_remaining = weapon_cooldown
-	_weapon_windup_remaining = weapon_windup_time
-	_weapon_active_remaining = 0.0
+	_weapon_windup_remaining = 0.0
+	_weapon_active_remaining = weapon_active_time
 	_weapon_recovery_remaining = 0.0
 	_weapon_swing_direction = _dash_direction
+	weapon_slashed.emit(global_position, _weapon_swing_direction, weapon_range, weapon_arc, weapon_damage)
 	queue_redraw()
 
 func take_damage(amount: float) -> void:
@@ -119,49 +120,50 @@ func get_dash_fraction() -> float:
 
 func _draw_character() -> void:
 	var facing: Vector2 = _dash_direction.normalized()
-	var side: Vector2 = facing.orthogonal()
+	var side: Vector2 = Vector2.RIGHT
 	var step: float = sin(_anim_time * 10.0) if _moving else sin(_anim_time * 2.0) * 0.18
 	var idle_bob: float = sin(_anim_time * 2.4) * 1.1 if not _moving else sin(_anim_time * 10.0) * 1.8
-	var origin: Vector2 = facing * idle_bob
+	var origin: Vector2 = Vector2(0.0, idle_bob)
 	var cape_sway: float = sin(_anim_time * 2.8) * 8.0 + sin(_anim_time * 5.1) * 2.5
 	var cape_lift: float = sin(_anim_time * 1.7) * 3.0
-	var head: Vector2 = origin + facing * 23.0
-	var chest: Vector2 = origin + facing * 7.0
-	var hips: Vector2 = origin - facing * 14.0
-	var left_foot: Vector2 = origin - facing * (34.0 + maxf(0.0, step) * 4.0) - side * (7.0 + step * 4.0)
-	var right_foot: Vector2 = origin - facing * (34.0 + maxf(0.0, -step) * 4.0) + side * (7.0 - step * 4.0)
-	var left_hand: Vector2 = origin + facing * 4.0 - side * 20.0
-	var right_hand: Vector2 = origin + facing * 1.0 + side * 17.0
+	var look: Vector2 = facing * 5.0
+	var head: Vector2 = origin + Vector2(0.0, -25.0) + look
+	var chest: Vector2 = origin + Vector2(0.0, -5.0)
+	var hips: Vector2 = origin + Vector2(0.0, 16.0)
+	var left_foot: Vector2 = origin + Vector2(-8.0 - step * 4.0, 38.0 + maxf(0.0, step) * 4.0)
+	var right_foot: Vector2 = origin + Vector2(8.0 - step * 4.0, 38.0 + maxf(0.0, -step) * 4.0)
+	var left_hand: Vector2 = origin + Vector2(-21.0, 0.0) + facing * 5.0
+	var right_hand: Vector2 = origin + Vector2(19.0, 1.0) + facing * 5.0
 
 	var cloak := PackedVector2Array([
-		head - side * 12.0,
-		chest - side * 21.0,
-		hips - side * 13.0,
-		hips + side * 8.0,
-		chest + side * 12.0,
-		head + side * 8.0,
+		head + Vector2(-12.0, 7.0),
+		chest + Vector2(-21.0, 0.0),
+		hips + Vector2(-13.0, 0.0),
+		hips + Vector2(8.0, 0.0),
+		chest + Vector2(12.0, 0.0),
+		head + Vector2(8.0, 7.0),
 	])
 	var tunic := PackedVector2Array([
-		head - side * 7.0 - facing * 5.0,
-		chest - side * 10.0,
-		hips - side * 6.0,
-		hips + side * 7.0,
-		chest + side * 9.0,
-		head + side * 6.0 - facing * 5.0,
+		head + Vector2(-7.0, 7.0),
+		chest + Vector2(-10.0, 0.0),
+		hips + Vector2(-6.0, 0.0),
+		hips + Vector2(7.0, 0.0),
+		chest + Vector2(9.0, 0.0),
+		head + Vector2(6.0, 7.0),
 	])
 	var red_sash := PackedVector2Array([
-		hips - side * 6.0 + facing * 3.0,
-		hips + side * 9.0 + facing * 1.0,
-		hips + side * 7.0 - facing * 7.0,
-		hips - side * 8.0 - facing * 5.0,
+		hips + Vector2(-8.0, -5.0),
+		hips + Vector2(9.0, -3.0),
+		hips + Vector2(7.0, 7.0),
+		hips + Vector2(-8.0, 5.0),
 	])
 	var cape := PackedVector2Array([
-		chest - side * 11.0,
-		chest + side * 8.0,
-		hips + side * (16.0 + cape_sway * 0.35) - facing * (10.0 + cape_lift),
-		hips + side * (24.0 + cape_sway) - facing * (39.0 + cape_lift),
-		hips + side * (9.0 + cape_sway * 0.45) - facing * 55.0,
-		hips - side * (8.0 - cape_sway * 0.15) - facing * 35.0,
+		chest + Vector2(-13.0, 0.0),
+		chest + Vector2(9.0, 0.0),
+		hips + Vector2(16.0 + cape_sway * 0.35, 11.0 + cape_lift),
+		hips + Vector2(24.0 + cape_sway, 42.0 + cape_lift),
+		hips + Vector2(9.0 + cape_sway * 0.45, 58.0),
+		hips + Vector2(-9.0 + cape_sway * 0.15, 38.0),
 	])
 	var cape_torn_edge := PackedVector2Array([
 		cape[3],
@@ -170,25 +172,25 @@ func _draw_character() -> void:
 		cape[5] + side * 7.0 + facing * 9.0,
 	])
 
-	draw_circle(origin - facing * 8.0, 20.0, Color(0.0, 0.0, 0.0, 0.35))
+	draw_circle(origin + Vector2(0.0, 10.0), 20.0, Color(0.0, 0.0, 0.0, 0.35))
 	draw_colored_polygon(cape, Color(0.018, 0.014, 0.012, 0.96))
 	draw_colored_polygon(cape_torn_edge, Color(0.09, 0.052, 0.028, 0.82))
 	draw_polyline(PackedVector2Array([cape[0], cape[1], cape[2], cape[3], cape[4], cape[5]]), Color(0.24, 0.15, 0.09, 0.82), 2.0)
 	draw_colored_polygon(cloak, Color(0.028, 0.023, 0.02, 0.98))
 	draw_polyline(PackedVector2Array([cloak[0], cloak[1], cloak[2], cloak[3], cloak[4], cloak[5], cloak[0]]), Color(0.26, 0.18, 0.12, 0.85), 2.0)
-	draw_line(chest - side * 15.0, left_hand, Color(0.82, 0.8, 0.72, 0.96), 5.0)
-	draw_line(chest + side * 12.0, right_hand, Color(0.82, 0.8, 0.72, 0.92), 5.0)
+	draw_line(chest + Vector2(-15.0, 0.0), left_hand, Color(0.82, 0.8, 0.72, 0.96), 5.0)
+	draw_line(chest + Vector2(12.0, 0.0), right_hand, Color(0.82, 0.8, 0.72, 0.92), 5.0)
 	draw_colored_polygon(tunic, Color(0.86, 0.84, 0.76, 0.98))
 	draw_colored_polygon(red_sash, Color(0.58, 0.07, 0.035, 0.96))
-	draw_line(hips - side * 5.0, left_foot, Color(0.82, 0.8, 0.72, 0.95), 6.0)
-	draw_line(hips + side * 5.0, right_foot, Color(0.58, 0.07, 0.035, 0.95), 6.0)
-	draw_line(left_foot - side * 3.0, left_foot + side * 6.0, Color(0.015, 0.012, 0.01, 1.0), 4.0)
-	draw_line(right_foot - side * 4.0, right_foot + side * 6.0, Color(0.015, 0.012, 0.01, 1.0), 4.0)
+	draw_line(hips + Vector2(-5.0, 0.0), left_foot, Color(0.82, 0.8, 0.72, 0.95), 6.0)
+	draw_line(hips + Vector2(5.0, 0.0), right_foot, Color(0.58, 0.07, 0.035, 0.95), 6.0)
+	draw_line(left_foot + Vector2(-3.0, 0.0), left_foot + Vector2(6.0, 0.0), Color(0.015, 0.012, 0.01, 1.0), 4.0)
+	draw_line(right_foot + Vector2(-4.0, 0.0), right_foot + Vector2(6.0, 0.0), Color(0.015, 0.012, 0.01, 1.0), 4.0)
 	draw_circle(head, 8.0, Color(0.9, 0.88, 0.8, 0.98))
-	draw_arc(head, 10.0, facing.angle() - PI * 0.25, facing.angle() + PI * 1.15, 14, Color(0.012, 0.01, 0.009, 0.98), 5.0)
-	draw_line(head - side * 8.0 + facing * 1.0, head + side * 8.0 + facing * 2.0, Color(0.0, 0.0, 0.0, 0.98), 5.0)
-	draw_line(left_hand, left_hand - facing * 30.0 - side * 8.0, Color(0.72, 0.73, 0.68, 0.94), 3.0)
-	draw_line(left_hand - facing * 30.0 - side * 8.0, left_hand - facing * 40.0 - side * 11.0, Color(0.94, 0.9, 0.74, 0.9), 2.0)
+	draw_arc(head, 10.0, -PI * 0.15, PI * 1.15, 14, Color(0.012, 0.01, 0.009, 0.98), 5.0)
+	draw_line(head + Vector2(-8.0, 2.0) + facing * 2.0, head + Vector2(8.0, 2.0) + facing * 2.0, Color(0.0, 0.0, 0.0, 0.98), 5.0)
+	draw_line(left_hand, left_hand + facing * 26.0 + Vector2(-8.0, 10.0), Color(0.72, 0.73, 0.68, 0.94), 3.0)
+	draw_line(left_hand + facing * 26.0 + Vector2(-8.0, 10.0), left_hand + facing * 34.0 + Vector2(-10.0, 14.0), Color(0.94, 0.9, 0.74, 0.9), 2.0)
 
 func _draw_blade() -> void:
 	var blade_direction := _get_blade_direction()
@@ -196,14 +198,32 @@ func _draw_blade() -> void:
 	var grip_start := blade_direction * 12.0
 	var hilt_center := blade_direction * 24.0
 	var blade_base := blade_direction * 31.0
-	var blade_tip := blade_direction * 76.0
+	var blade_tip := blade_direction * 92.0
 
 	if _weapon_active_remaining > 0.0:
-		var sweep_progress := 1.0 - _weapon_active_remaining / weapon_active_time
-		var base_angle := _weapon_swing_direction.angle()
-		var trail_alpha := 0.75 * (1.0 - sweep_progress * 0.35)
-		draw_arc(Vector2.ZERO, weapon_range, base_angle - weapon_arc * 0.5, base_angle + weapon_arc * 0.5, 18, Color(0.86, 0.52, 0.22, trail_alpha), 6.0)
-		draw_arc(Vector2.ZERO, weapon_range * 0.78, base_angle - weapon_arc * 0.42, base_angle + weapon_arc * 0.42, 14, Color(0.95, 0.82, 0.58, trail_alpha * 0.62), 3.0)
+		var sweep_progress: float = 1.0 - _weapon_active_remaining / weapon_active_time
+		var base_angle: float = _weapon_swing_direction.angle()
+		var start_angle: float = base_angle - weapon_arc * 0.5
+		var end_angle: float = base_angle + weapon_arc * 0.5
+		var current_angle: float = lerpf(start_angle, end_angle, sweep_progress)
+		var trail_alpha: float = 0.92 * (1.0 - sweep_progress * 0.42)
+		var slash_direction: Vector2 = Vector2.RIGHT.rotated(current_angle)
+		var slash_side: Vector2 = slash_direction.orthogonal()
+		var flash_tip: Vector2 = slash_direction * weapon_range
+		var flash_base: Vector2 = slash_direction * 44.0
+		var crescent := PackedVector2Array([
+			flash_base - slash_side * 14.0,
+			flash_tip - slash_side * 10.0,
+			flash_tip + slash_direction * 10.0,
+			flash_tip + slash_side * 17.0,
+			flash_base + slash_side * 8.0,
+		])
+		draw_arc(Vector2.ZERO, weapon_range, start_angle, end_angle, 32, Color(0.92, 0.48, 0.18, trail_alpha), 12.0)
+		draw_arc(Vector2.ZERO, weapon_range * 0.82, start_angle + weapon_arc * 0.08, end_angle - weapon_arc * 0.08, 26, Color(0.98, 0.78, 0.42, trail_alpha * 0.72), 6.0)
+		draw_arc(Vector2.ZERO, weapon_range * 0.58, start_angle + weapon_arc * 0.18, end_angle - weapon_arc * 0.18, 18, Color(1.0, 0.94, 0.68, trail_alpha * 0.45), 3.0)
+		draw_colored_polygon(crescent, Color(1.0, 0.84, 0.48, trail_alpha * 0.24))
+		draw_line(Vector2.RIGHT.rotated(start_angle) * 52.0, Vector2.RIGHT.rotated(start_angle) * (weapon_range - 4.0), Color(0.96, 0.68, 0.34, trail_alpha * 0.38), 4.0)
+		draw_line(Vector2.RIGHT.rotated(end_angle) * 52.0, Vector2.RIGHT.rotated(end_angle) * (weapon_range - 4.0), Color(1.0, 0.9, 0.55, trail_alpha * 0.54), 5.0)
 
 	draw_line(grip_start, hilt_center, Color(0.035, 0.022, 0.018, 1.0), 9.0)
 	draw_line(grip_start, hilt_center, Color(0.32, 0.17, 0.08, 1.0), 5.0)
