@@ -1,0 +1,86 @@
+name: Build and Deploy Web Game
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.6.2
+  GODOT_STATUS: stable
+  GODOT_EXECUTABLE: Godot_v4.6.2-stable_linux.x86_64
+  EXPORT_TEMPLATE_DIR: /home/runner/.local/share/godot/export_templates/4.6.2.stable
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Download Godot
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip
+          unzip -q Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip
+          chmod +x "${GODOT_EXECUTABLE}"
+
+      - name: Install Godot web export templates
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz
+          mkdir -p "${EXPORT_TEMPLATE_DIR}"
+          unzip -q -j Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz \
+            templates/version.txt \
+            templates/web_release.zip \
+            templates/web_debug.zip \
+            templates/web_nothreads_release.zip \
+            templates/web_nothreads_debug.zip \
+            templates/web_dlink_release.zip \
+            templates/web_dlink_debug.zip \
+            templates/web_dlink_nothreads_release.zip \
+            templates/web_dlink_nothreads_debug.zip \
+            -d "${EXPORT_TEMPLATE_DIR}"
+
+      - name: Import project
+        run: ./"${GODOT_EXECUTABLE}" --headless --path . --import
+
+      - name: Export web build
+        run: |
+          mkdir -p build/web
+          ./"${GODOT_EXECUTABLE}" --headless --path . --export-release "Web" build/web/index.html
+          touch build/web/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
