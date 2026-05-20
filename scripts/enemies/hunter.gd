@@ -58,21 +58,21 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	var color := _health_color(Color(1.0, 0.18, 0.82))
+	var color := _health_color(Color(0.72, 0.18, 0.08))
 	if _windup_timer > 0.0:
 		var charge := 1.0 - _windup_timer / 0.34
-		color = Color.WHITE if int(charge * 10.0) % 2 == 0 else Color(1.0, 0.18, 0.82)
-		draw_arc(Vector2.ZERO, lerpf(42.0, 26.0, charge), 0.0, TAU, 28, Color(1.0, 0.18, 0.82, 0.85), 4.0)
-		draw_line(Vector2.ZERO, _lunge_direction * 54.0, Color(1.0, 0.18, 0.82, 0.95), 4.0)
+		color = Color(0.86, 0.62, 0.36) if int(charge * 10.0) % 2 == 0 else Color(0.72, 0.18, 0.08)
+		draw_arc(Vector2.ZERO, lerpf(42.0, 26.0, charge), 0.0, TAU, 28, Color(0.72, 0.18, 0.08, 0.85), 4.0)
+		draw_line(Vector2.ZERO, _lunge_direction * 54.0, Color(0.86, 0.42, 0.16, 0.95), 4.0)
 	elif _lunge_timer > 0.0:
-		draw_line(-_lunge_direction * 34.0, -_lunge_direction * 58.0, Color(0.2, 1.0, 1.0, 0.65), 7.0)
+		draw_line(-_lunge_direction * 34.0, -_lunge_direction * 58.0, Color(0.62, 0.34, 0.16, 0.65), 7.0)
 	var points := PackedVector2Array([
 		Vector2(26, 0),
 		Vector2(-18, -18),
 		Vector2(-10, 0),
 		Vector2(-18, 18),
 	])
-	draw_colored_polygon(points, Color(0.05, 0.02, 0.08, 0.98))
+	draw_colored_polygon(points, Color(0.03, 0.018, 0.014, 0.98))
 	var outline := PackedVector2Array([points[0], points[1], points[2], points[3], points[0]])
 	draw_polyline(outline, color, 4.0)
-	draw_circle(Vector2(4, 0), 5.0, Color(0.2, 1.0, 1.0))
+	draw_circle(Vector2(4, 0), 5.0, Color(0.86, 0.42, 0.16))

@@ -39,6 +39,8 @@ var _dash_direction := Vector2.RIGHT
 var _touch_origin := Vector2.ZERO
 var _touch_vector := Vector2.ZERO
 var _touch_active := false
+var _anim_time := 0.0
+var _moving := false
 
 func _ready() -> void:
 	z_index = 20
@@ -46,8 +48,10 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	_dash_cooldown_remaining = max(0.0, _dash_cooldown_remaining - delta)
 	_update_weapon_timers(delta)
+	_anim_time += delta
 
 	var input_vector := _read_movement_input()
+	_moving = input_vector.length_squared() > 0.001 or velocity.length_squared() > 1200.0
 	if input_vector.length_squared() > 0.001:
 		_dash_direction = input_vector.normalized()
 
@@ -117,82 +121,86 @@ func get_dash_fraction() -> float:
 func _draw_character() -> void:
 	var facing := _dash_direction.normalized()
 	var side := facing.orthogonal()
+	var step := sin(_anim_time * 10.0) if _moving else sin(_anim_time * 2.0) * 0.18
+	var idle_bob := sin(_anim_time * 2.4) * 1.1 if not _moving else sin(_anim_time * 10.0) * 1.8
+	var cloak_sway := sin(_anim_time * 3.0) * 3.0 if not _moving else sin(_anim_time * 10.0) * 6.0
+	var origin := facing * idle_bob
 	var cloak := PackedVector2Array([
-		-side * 18.0 + facing * 4.0,
-		-side * 34.0 - facing * 12.0,
-		-side * 30.0 - facing * 42.0,
-		-side * 18.0 - facing * 56.0,
-		-side * 5.0 - facing * 35.0,
+		origin - side * 18.0 + facing * 4.0,
+		origin - side * (34.0 + cloak_sway) - facing * 12.0,
+		origin - side * (30.0 + cloak_sway * 0.6) - facing * 42.0,
+		origin - side * 18.0 - facing * 58.0,
+		origin - side * 4.0 - facing * 35.0,
 	])
 	var cloak_fringe := PackedVector2Array([
-		-side * 30.0 - facing * 42.0,
-		-side * 23.0 - facing * 51.0,
-		-side * 18.0 - facing * 56.0,
-		-side * 12.0 - facing * 48.0,
-		-side * 5.0 - facing * 35.0,
+		origin - side * (30.0 + cloak_sway * 0.6) - facing * 42.0,
+		origin - side * 24.0 - facing * 54.0,
+		origin - side * 18.0 - facing * 58.0,
+		origin - side * 11.0 - facing * 49.0,
+		origin - side * 4.0 - facing * 35.0,
 	])
 	var duster := PackedVector2Array([
-		facing * 22.0,
-		side * 18.0 + facing * 4.0,
-		side * 13.0 - facing * 27.0,
-		-side * 13.0 - facing * 27.0,
-		-side * 18.0 + facing * 4.0,
+		origin + facing * 24.0,
+		origin + side * 16.0 + facing * 5.0,
+		origin + side * 12.0 - facing * 30.0,
+		origin - side * 12.0 - facing * 30.0,
+		origin - side * 18.0 + facing * 3.0,
 	])
 	var shirt := PackedVector2Array([
-		facing * 17.0,
-		side * 7.0 + facing * 2.0,
-		side * 5.0 - facing * 17.0,
-		-side * 5.0 - facing * 17.0,
-		-side * 7.0 + facing * 2.0,
+		origin + facing * 18.0,
+		origin + side * 6.0 + facing * 1.0,
+		origin + side * 4.0 - facing * 18.0,
+		origin - side * 5.0 - facing * 18.0,
+		origin - side * 7.0 + facing * 1.0,
 	])
 	var hat_brim := PackedVector2Array([
-		facing * 24.0,
-		side * 31.0 + facing * 9.0,
-		side * 35.0 - facing * 2.0,
-		side * 13.0 - facing * 15.0,
-		-side * 13.0 - facing * 15.0,
-		-side * 35.0 - facing * 2.0,
-		-side * 31.0 + facing * 9.0,
+		origin + facing * 26.0,
+		origin + side * 34.0 + facing * 10.0,
+		origin + side * 40.0 - facing * 3.0,
+		origin + side * 14.0 - facing * 18.0,
+		origin - side * 15.0 - facing * 18.0,
+		origin - side * 40.0 - facing * 3.0,
+		origin - side * 34.0 + facing * 10.0,
 	])
 	var hat_crown := PackedVector2Array([
-		facing * 23.0,
-		side * 11.0 + facing * 14.0,
-		side * 10.0 - facing * 7.0,
-		-side * 10.0 - facing * 7.0,
-		-side * 11.0 + facing * 14.0,
+		origin + facing * 25.0,
+		origin + side * 11.0 + facing * 15.0,
+		origin + side * 10.0 - facing * 8.0,
+		origin - side * 10.0 - facing * 8.0,
+		origin - side * 12.0 + facing * 15.0,
 	])
 	var hair := PackedVector2Array([
-		-side * 12.0 + facing * 7.0,
-		-side * 23.0 - facing * 9.0,
-		-side * 18.0 - facing * 31.0,
-		side * 3.0 - facing * 22.0,
-		side * 6.0 - facing * 6.0,
+		origin - side * 12.0 + facing * 8.0,
+		origin - side * 25.0 - facing * 9.0,
+		origin - side * 20.0 - facing * 34.0,
+		origin + side * 3.0 - facing * 24.0,
+		origin + side * 7.0 - facing * 6.0,
 	])
 
-	draw_circle(-facing * 12.0, 22.0, Color(0.0, 0.0, 0.0, 0.25))
+	draw_circle(origin - facing * 14.0, 24.0, Color(0.0, 0.0, 0.0, 0.32))
 	draw_colored_polygon(cloak, Color(0.09, 0.055, 0.035, 0.98))
-	draw_colored_polygon(cloak_fringe, Color(0.18, 0.095, 0.045, 0.88))
-	draw_polyline(PackedVector2Array([cloak[0], cloak[1], cloak[2], cloak[3], cloak[4]]), Color(0.68, 0.36, 0.16, 0.75), 2.0)
-	draw_colored_polygon(duster, Color(0.13, 0.075, 0.045, 0.98))
-	draw_polyline(PackedVector2Array([duster[0], duster[1], duster[2], duster[3], duster[4], duster[0]]), Color(0.67, 0.37, 0.17, 0.82), 2.5)
+	draw_colored_polygon(cloak_fringe, Color(0.14, 0.075, 0.036, 0.88))
+	draw_polyline(PackedVector2Array([cloak[0], cloak[1], cloak[2], cloak[3], cloak[4]]), Color(0.54, 0.27, 0.11, 0.7), 2.0)
+	draw_colored_polygon(duster, Color(0.095, 0.055, 0.036, 0.98))
+	draw_polyline(PackedVector2Array([duster[0], duster[1], duster[2], duster[3], duster[4], duster[0]]), Color(0.57, 0.31, 0.14, 0.8), 2.5)
 	draw_colored_polygon(shirt, Color(0.035, 0.025, 0.02, 1.0))
-	draw_line(-side * 7.0 - facing * 11.0, -side * 16.0 - facing * 31.0, Color(0.035, 0.025, 0.02, 1.0), 5.0)
-	draw_line(side * 7.0 - facing * 11.0, side * 16.0 - facing * 31.0, Color(0.035, 0.025, 0.02, 1.0), 5.0)
-	draw_line(-side * 8.0 - facing * 31.0, -side * 18.0 - facing * 38.0, Color(0.015, 0.012, 0.012, 1.0), 4.0)
-	draw_line(side * 8.0 - facing * 31.0, side * 18.0 - facing * 38.0, Color(0.015, 0.012, 0.012, 1.0), 4.0)
-	draw_line(-side * 17.0 + facing * 2.0, -side * 31.0 - facing * 6.0, Color(0.06, 0.035, 0.025, 1.0), 5.0)
-	draw_line(side * 17.0 + facing * 2.0, side * 31.0 - facing * 6.0, Color(0.06, 0.035, 0.025, 1.0), 5.0)
-	draw_line(side * 12.0 - facing * 4.0, side * 20.0 - facing * 15.0, Color(0.7, 0.38, 0.17, 0.95), 3.0)
+	draw_line(origin - side * 7.0 - facing * 11.0, origin - side * (16.0 + step * 4.0) - facing * (31.0 + max(0.0, step) * 5.0), Color(0.025, 0.018, 0.015, 1.0), 5.0)
+	draw_line(origin + side * 7.0 - facing * 11.0, origin + side * (16.0 - step * 4.0) - facing * (31.0 + max(0.0, -step) * 5.0), Color(0.025, 0.018, 0.015, 1.0), 5.0)
+	draw_line(origin - side * (8.0 + step * 2.0) - facing * 31.0, origin - side * (18.0 + step * 5.0) - facing * 40.0, Color(0.01, 0.008, 0.008, 1.0), 4.0)
+	draw_line(origin + side * (8.0 - step * 2.0) - facing * 31.0, origin + side * (18.0 - step * 5.0) - facing * 40.0, Color(0.01, 0.008, 0.008, 1.0), 4.0)
+	draw_line(origin - side * 16.0 + facing * 2.0, origin - side * 31.0 - facing * 6.0, Color(0.045, 0.026, 0.018, 1.0), 5.0)
+	draw_line(origin + side * 16.0 + facing * 2.0, origin + side * 30.0 - facing * 7.0, Color(0.045, 0.026, 0.018, 1.0), 5.0)
+	draw_line(origin + side * 11.0 - facing * 4.0, origin + side * 20.0 - facing * 15.0, Color(0.55, 0.29, 0.13, 0.95), 3.0)
 	draw_colored_polygon(hair, Color(0.01, 0.008, 0.008, 1.0))
-	draw_circle(facing * 9.0, 9.5, Color(0.62, 0.42, 0.31, 0.98))
-	draw_line(facing * 9.0 - side * 10.0, facing * 12.0 + side * 10.0, Color(0.015, 0.01, 0.01, 1.0), 11.0)
-	draw_line(facing * 3.0 - side * 5.0, facing * 0.0 - side * 12.0, Color(0.01, 0.008, 0.008, 1.0), 4.0)
+	draw_circle(origin + facing * 9.0, 9.5, Color(0.54, 0.36, 0.26, 0.98))
+	draw_line(origin + facing * 9.0 - side * 11.0, origin + facing * 12.0 + side * 11.0, Color(0.01, 0.007, 0.006, 1.0), 12.0)
+	draw_line(origin + facing * 3.0 - side * 5.0, origin + facing * 0.0 - side * 12.0, Color(0.01, 0.008, 0.008, 1.0), 4.0)
 	draw_colored_polygon(hat_brim, Color(0.025, 0.018, 0.015, 1.0))
-	draw_polyline(PackedVector2Array([hat_brim[0], hat_brim[1], hat_brim[2], hat_brim[3], hat_brim[4], hat_brim[5], hat_brim[6], hat_brim[0]]), Color(0.55, 0.31, 0.14, 0.8), 2.0)
-	draw_colored_polygon(hat_crown, Color(0.05, 0.035, 0.025, 1.0))
-	draw_line(facing * 8.0 - side * 12.0, facing * 11.0 + side * 12.0, Color(0.0, 0.0, 0.0, 0.98), 9.0)
-	draw_line(facing * 13.0 - side * 11.0, facing * 16.0 + side * 11.0, Color(0.68, 0.36, 0.16, 0.5), 1.5)
-	draw_arc(Vector2.ZERO, 34.0, facing.angle() - PI * 0.78, facing.angle() + PI * 0.78, 22, Color(0.68, 0.36, 0.16, 0.45), 2.0)
+	draw_polyline(PackedVector2Array([hat_brim[0], hat_brim[1], hat_brim[2], hat_brim[3], hat_brim[4], hat_brim[5], hat_brim[6], hat_brim[0]]), Color(0.48, 0.26, 0.11, 0.78), 2.0)
+	draw_colored_polygon(hat_crown, Color(0.038, 0.026, 0.019, 1.0))
+	draw_line(origin + facing * 8.0 - side * 12.0, origin + facing * 11.0 + side * 12.0, Color(0.0, 0.0, 0.0, 0.98), 10.0)
+	draw_line(origin + facing * 13.0 - side * 11.0, origin + facing * 16.0 + side * 11.0, Color(0.58, 0.31, 0.14, 0.5), 1.5)
+	draw_arc(origin, 36.0, facing.angle() - PI * 0.78, facing.angle() + PI * 0.78, 22, Color(0.48, 0.26, 0.11, 0.42), 2.0)
 
 func _draw_blade() -> void:
 	var blade_direction := _get_blade_direction()
@@ -206,28 +214,28 @@ func _draw_blade() -> void:
 		var sweep_progress := 1.0 - _weapon_active_remaining / weapon_active_time
 		var base_angle := _weapon_swing_direction.angle()
 		var trail_alpha := 0.75 * (1.0 - sweep_progress * 0.35)
-		draw_arc(Vector2.ZERO, weapon_range, base_angle - weapon_arc * 0.5, base_angle + weapon_arc * 0.5, 18, Color(1.0, 0.18, 0.82, trail_alpha), 6.0)
-		draw_arc(Vector2.ZERO, weapon_range * 0.78, base_angle - weapon_arc * 0.42, base_angle + weapon_arc * 0.42, 14, Color(0.2, 1.0, 1.0, trail_alpha * 0.72), 3.0)
+		draw_arc(Vector2.ZERO, weapon_range, base_angle - weapon_arc * 0.5, base_angle + weapon_arc * 0.5, 18, Color(0.86, 0.52, 0.22, trail_alpha), 6.0)
+		draw_arc(Vector2.ZERO, weapon_range * 0.78, base_angle - weapon_arc * 0.42, base_angle + weapon_arc * 0.42, 14, Color(0.95, 0.82, 0.58, trail_alpha * 0.62), 3.0)
 
-	draw_line(grip_start, hilt_center, Color(0.08, 0.04, 0.1, 1.0), 9.0)
-	draw_line(grip_start, hilt_center, Color(0.45, 0.18, 0.5, 1.0), 5.0)
-	draw_line(hilt_center - side * 13.0, hilt_center + side * 13.0, Color(0.2, 1.0, 1.0, 0.95), 5.0)
+	draw_line(grip_start, hilt_center, Color(0.035, 0.022, 0.018, 1.0), 9.0)
+	draw_line(grip_start, hilt_center, Color(0.32, 0.17, 0.08, 1.0), 5.0)
+	draw_line(hilt_center - side * 13.0, hilt_center + side * 13.0, Color(0.66, 0.36, 0.16, 0.95), 5.0)
 
 	var blade := PackedVector2Array([
 		blade_base - side * 5.5,
 		blade_base + side * 5.5,
 		blade_tip,
 	])
-	draw_colored_polygon(blade, Color(0.72, 0.86, 0.95, 0.98))
+	draw_colored_polygon(blade, Color(0.62, 0.63, 0.6, 0.98))
 
 	var edge := PackedVector2Array([
 		blade_base + side * 1.5,
 		blade_base + side * 5.5,
 		blade_tip,
 	])
-	draw_colored_polygon(edge, Color(0.96, 1.0, 1.0, 0.98))
-	draw_line(blade_base - side * 5.5, blade_tip, Color(0.2, 1.0, 1.0, 0.48), 2.0)
-	draw_line(blade_base + side * 5.5, blade_tip, Color(1.0, 0.18, 0.82, 0.5), 2.0)
+	draw_colored_polygon(edge, Color(0.9, 0.86, 0.72, 0.98))
+	draw_line(blade_base - side * 5.5, blade_tip, Color(0.18, 0.12, 0.08, 0.58), 2.0)
+	draw_line(blade_base + side * 5.5, blade_tip, Color(0.86, 0.52, 0.22, 0.46), 2.0)
 
 func _get_blade_direction() -> Vector2:
 	if _weapon_windup_remaining > 0.0:

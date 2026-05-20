@@ -29,7 +29,7 @@ func _physics_process(delta: float) -> void:
 			if _distance_to_segment(player.global_position, global_position, shot_end) <= 32.0:
 				player.take_damage(6.0 + alert_level * 1.5)
 			if vfx_layer != null:
-				vfx_layer.beam(global_position, shot_end, Color(1.0, 0.35, 0.08))
+				vfx_layer.beam(global_position, shot_end, Color(0.82, 0.32, 0.1))
 		queue_redraw()
 		return
 
@@ -38,19 +38,19 @@ func _physics_process(delta: float) -> void:
 		_charge_timer = 0.42
 		_shot_target = player.global_position
 		if vfx_layer != null:
-			vfx_layer.beam(global_position, _shot_target, Color(1.0, 0.48, 0.08))
+			vfx_layer.beam(global_position, _shot_target, Color(0.78, 0.42, 0.16))
 	queue_redraw()
 
 func _draw() -> void:
-	var color := _health_color(Color(1.0, 0.48, 0.08))
+	var color := _health_color(Color(0.72, 0.38, 0.16))
 	if _charge_timer > 0.0:
 		var charge := 1.0 - _charge_timer / 0.42
-		var warning_color := Color(1.0, 0.35, 0.08, lerpf(0.28, 0.9, charge))
+		var warning_color := Color(0.82, 0.32, 0.1, lerpf(0.28, 0.9, charge))
 		draw_line(Vector2.ZERO, Vector2.RIGHT.rotated(_aim_angle) * 620.0, warning_color, lerpf(2.0, 6.0, charge))
 		draw_arc(Vector2.ZERO, lerpf(36.0, 22.0, charge), 0.0, TAU, 28, warning_color, 4.0)
-	draw_rect(Rect2(Vector2(-22, -22), Vector2(44, 44)), Color(0.04, 0.02, 0.06, 0.98), true)
+	draw_rect(Rect2(Vector2(-22, -22), Vector2(44, 44)), Color(0.028, 0.018, 0.014, 0.98), true)
 	draw_rect(Rect2(Vector2(-22, -22), Vector2(44, 44)), color, false, 4.0)
-	draw_line(Vector2.ZERO, Vector2.RIGHT.rotated(_aim_angle) * 34.0, Color(0.2, 1.0, 1.0), 5.0)
+	draw_line(Vector2.ZERO, Vector2.RIGHT.rotated(_aim_angle) * 34.0, Color(0.86, 0.52, 0.22), 5.0)
 
 func _distance_to_segment(point: Vector2, segment_start: Vector2, segment_end: Vector2) -> float:
 	var segment := segment_end - segment_start

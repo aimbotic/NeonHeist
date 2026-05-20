@@ -41,11 +41,11 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	var color := _health_color(Color(0.15, 0.95, 1.0))
+	var color := _health_color(Color(0.68, 0.36, 0.16))
 	if _swarm_warning_time > 0.0:
 		var pulse := _swarm_warning_time / 0.24
-		draw_circle(Vector2.ZERO, lerpf(38.0, 24.0, pulse), Color(1.0, 0.18, 0.82, 0.3 * pulse))
-		draw_arc(Vector2.ZERO, lerpf(44.0, 26.0, pulse), 0.0, TAU, 24, Color(1.0, 0.18, 0.82, 0.8 * pulse), 4.0)
-	draw_circle(Vector2.ZERO, 18.0, Color(0.03, 0.02, 0.07, 0.98))
+		draw_circle(Vector2.ZERO, lerpf(38.0, 24.0, pulse), Color(0.72, 0.08, 0.04, 0.28 * pulse))
+		draw_arc(Vector2.ZERO, lerpf(44.0, 26.0, pulse), 0.0, TAU, 24, Color(0.82, 0.32, 0.1, 0.78 * pulse), 4.0)
+	draw_circle(Vector2.ZERO, 18.0, Color(0.025, 0.018, 0.014, 0.98))
 	draw_arc(Vector2.ZERO, 22.0, 0.0, TAU, 24, color, 3.0)
-	draw_line(Vector2(-20, 0), Vector2(20, 0), Color(1.0, 0.18, 0.82), 2.0)
+	draw_line(Vector2(-20, 0), Vector2(20, 0), Color(0.82, 0.48, 0.18), 2.0)

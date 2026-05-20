@@ -28,7 +28,7 @@ var loot_collected := 0
 
 func _ready() -> void:
 	_configure_input()
-	RenderingServer.set_default_clear_color(Color(0.33, 0.19, 0.08, 1.0))
+	RenderingServer.set_default_clear_color(Color(0.025, 0.018, 0.014, 1.0))
 
 	save_system = SaveSystemScene.new()
 	add_child(save_system)
@@ -64,66 +64,66 @@ func _draw() -> void:
 	if vault_data.is_empty():
 		return
 
-	_draw_arcade_desert_backdrop()
+	_draw_dark_western_backdrop()
 
 	for corridor in vault_data["corridors"]:
-		draw_line(corridor["from"], corridor["to"], Color(0.74, 0.43, 0.16, 0.52), 84.0)
-		draw_line(corridor["from"], corridor["to"], Color(0.95, 0.68, 0.28, 0.38), 48.0)
-		draw_line(corridor["from"], corridor["to"], Color(0.2, 0.95, 1.0, 0.22), 8.0)
+		draw_line(corridor["from"], corridor["to"], Color(0.12, 0.075, 0.045, 0.82), 90.0)
+		draw_line(corridor["from"], corridor["to"], Color(0.38, 0.2, 0.085, 0.42), 52.0)
+		draw_line(corridor["from"], corridor["to"], Color(0.72, 0.38, 0.16, 0.42), 8.0)
 
 	for room in vault_data["rooms"]:
 		var rect: Rect2 = room["rect"]
-		draw_rect(rect, Color(0.56, 0.31, 0.12, 0.94), true)
-		draw_rect(rect.grow(-10.0), Color(0.76, 0.47, 0.19, 0.52), false, 2.0)
-		draw_rect(rect, Color(1.0, 0.63, 0.18, 0.48), false, 4.0)
-		draw_rect(rect.grow(-18.0), Color(0.1, 0.92, 1.0, 0.16), false, 2.0)
+		draw_rect(rect, Color(0.075, 0.047, 0.032, 0.96), true)
+		draw_rect(rect.grow(-10.0), Color(0.2, 0.105, 0.052, 0.46), false, 2.0)
+		draw_rect(rect, Color(0.55, 0.29, 0.12, 0.5), false, 4.0)
+		draw_rect(rect.grow(-18.0), Color(0.78, 0.47, 0.2, 0.15), false, 2.0)
 
 	for hazard in vault_data["hazards"]:
-		draw_circle(hazard, 22.0, Color(1.0, 0.38, 0.05, 0.38))
-		draw_arc(hazard, 34.0, 0.0, TAU, 28, Color(1.0, 0.48, 0.08, 0.85), 3.0)
+		draw_circle(hazard, 22.0, Color(0.78, 0.2, 0.06, 0.32))
+		draw_arc(hazard, 34.0, 0.0, TAU, 28, Color(0.88, 0.36, 0.1, 0.82), 3.0)
 
 	for node_position in vault_data["hack_nodes"]:
 		var hacked := hacked_nodes.has(node_position)
-		var color := Color(0.2, 1.0, 0.95, 0.95) if not hacked else Color(0.4, 1.0, 0.35, 0.8)
+		var color := Color(0.86, 0.46, 0.18, 0.95) if not hacked else Color(0.73, 0.68, 0.42, 0.86)
 		draw_circle(node_position, 28.0, Color(color.r, color.g, color.b, 0.18))
 		draw_rect(Rect2(node_position - Vector2(15, 15), Vector2(30, 30)), color, false, 4.0)
 
-	var extraction_color := Color(0.2, 1.0, 0.45, 0.95) if extraction_open else Color(1.0, 0.25, 0.15, 0.8)
+	var extraction_color := Color(0.82, 0.62, 0.28, 0.95) if extraction_open else Color(0.78, 0.18, 0.08, 0.8)
 	draw_circle(vault_data["extraction"], 58.0, Color(extraction_color.r, extraction_color.g, extraction_color.b, 0.18))
 	draw_arc(vault_data["extraction"], 72.0, 0.0, TAU, 48, extraction_color, 5.0)
 
-func _draw_arcade_desert_backdrop() -> void:
+func _draw_dark_western_backdrop() -> void:
 	var bounds := _get_vault_bounds().grow(520.0)
-	draw_rect(bounds, Color(0.35, 0.2, 0.08, 1.0), true)
+	draw_rect(bounds, Color(0.028, 0.019, 0.014, 1.0), true)
 
 	var horizon_y := bounds.position.y + bounds.size.y * 0.22
-	draw_rect(Rect2(bounds.position, Vector2(bounds.size.x, bounds.size.y * 0.24)), Color(0.12, 0.045, 0.08, 1.0), true)
-	draw_line(Vector2(bounds.position.x, horizon_y), Vector2(bounds.end.x, horizon_y), Color(1.0, 0.38, 0.16, 0.48), 4.0)
+	draw_rect(Rect2(bounds.position, Vector2(bounds.size.x, bounds.size.y * 0.24)), Color(0.008, 0.006, 0.006, 1.0), true)
+	draw_line(Vector2(bounds.position.x, horizon_y), Vector2(bounds.end.x, horizon_y), Color(0.62, 0.28, 0.12, 0.42), 4.0)
 
 	for i in range(7):
 		var t := float(i) / 6.0
 		var y := lerpf(horizon_y + 50.0, bounds.end.y - 80.0, t)
-		var alpha := lerpf(0.2, 0.06, t)
-		draw_line(Vector2(bounds.position.x, y), Vector2(bounds.end.x, y), Color(1.0, 0.74, 0.28, alpha), 2.0)
+		var alpha := lerpf(0.12, 0.035, t)
+		draw_line(Vector2(bounds.position.x, y), Vector2(bounds.end.x, y), Color(0.62, 0.34, 0.16, alpha), 2.0)
 
 	for i in range(12):
 		var x := bounds.position.x + i * 220.0
-		draw_line(Vector2(x, horizon_y), Vector2(x - 260.0, bounds.end.y), Color(1.0, 0.45, 0.18, 0.08), 2.0)
-		draw_line(Vector2(x, horizon_y), Vector2(x + 260.0, bounds.end.y), Color(1.0, 0.45, 0.18, 0.08), 2.0)
+		draw_line(Vector2(x, horizon_y), Vector2(x - 260.0, bounds.end.y), Color(0.52, 0.25, 0.1, 0.055), 2.0)
+		draw_line(Vector2(x, horizon_y), Vector2(x + 260.0, bounds.end.y), Color(0.52, 0.25, 0.1, 0.055), 2.0)
 
 	for i in range(9):
 		var dune_y := bounds.position.y + bounds.size.y * (0.36 + i * 0.055)
 		var start := Vector2(bounds.position.x - 80.0, dune_y)
 		var end := Vector2(bounds.end.x + 80.0, dune_y + sin(i * 1.7) * 52.0)
-		draw_line(start, end, Color(0.8, 0.48, 0.18, 0.18), 10.0)
+		draw_line(start, end, Color(0.33, 0.18, 0.08, 0.16), 10.0)
 
 	for i in range(10):
 		var mesa_x := bounds.position.x + 160.0 + i * 310.0
 		var mesa_w := 90.0 + float((i * 37) % 70)
 		var mesa_h := 55.0 + float((i * 23) % 80)
 		var mesa_rect := Rect2(Vector2(mesa_x, horizon_y - mesa_h), Vector2(mesa_w, mesa_h))
-		draw_rect(mesa_rect, Color(0.21, 0.095, 0.06, 0.78), true)
-		draw_rect(mesa_rect, Color(0.8, 0.38, 0.16, 0.36), false, 2.0)
+		draw_rect(mesa_rect, Color(0.055, 0.03, 0.022, 0.9), true)
+		draw_rect(mesa_rect, Color(0.48, 0.22, 0.09, 0.28), false, 2.0)
 
 func _get_vault_bounds() -> Rect2:
 	var bounds := Rect2(vault_data["spawn"], Vector2.ZERO)
@@ -192,7 +192,7 @@ func _start_run() -> void:
 
 	_spawn_enemies()
 	hud.show_run_start(vault_data["seed"])
-	vfx_layer.burst(vault_data["spawn"], Color(0.2, 1.0, 1.0), 36)
+	vfx_layer.burst(vault_data["spawn"], Color(0.72, 0.38, 0.16), 36)
 	queue_redraw()
 
 func _spawn_enemies() -> void:
@@ -234,13 +234,13 @@ func _try_hack() -> void:
 		loot_collected += 1
 		director.add_heat(-0.2)
 		program_system.award_random_program()
-		vfx_layer.shockwave(closest, Color(0.25, 1.0, 0.85))
+		vfx_layer.shockwave(closest, Color(0.82, 0.48, 0.18))
 		if hacked_nodes.size() >= 3:
 			extraction_open = true
 		queue_redraw()
 	else:
 		director.add_heat(0.22)
-		vfx_layer.burst(player.global_position, Color(1.0, 0.1, 0.25), 18)
+		vfx_layer.burst(player.global_position, Color(0.72, 0.12, 0.06), 18)
 
 func _cast_program(program_id: String) -> void:
 	if not program_system.can_cast(program_id):
@@ -260,7 +260,7 @@ func _cast_program(program_id: String) -> void:
 func _trigger_chain_reaction(origin: Vector2, radius: float, damage: float) -> void:
 	for hazard in vault_data["hazards"]:
 		if origin.distance_to(hazard) <= radius:
-			vfx_layer.shockwave(hazard, Color(1.0, 0.4, 0.08))
+			vfx_layer.shockwave(hazard, Color(0.82, 0.3, 0.08))
 			for enemy in enemies:
 				if is_instance_valid(enemy) and enemy.global_position.distance_to(hazard) <= 145.0:
 					enemy.take_damage(damage)
@@ -275,15 +275,15 @@ func _update_extraction() -> void:
 		var credits := loot_collected * 35 + hacked_nodes.size() * 20
 		save_system.add_credits(credits)
 		hud.show_run_complete(credits)
-		vfx_layer.shockwave(vault_data["extraction"], Color(0.25, 1.0, 0.45))
+		vfx_layer.shockwave(vault_data["extraction"], Color(0.82, 0.62, 0.28))
 
 func _on_player_dash() -> void:
 	director.add_heat(0.03)
-	vfx_layer.trail_pop(player.global_position, Color(0.25, 0.95, 1.0))
+	vfx_layer.trail_pop(player.global_position, Color(0.68, 0.36, 0.16))
 
 func _on_player_weapon_slashed(origin: Vector2, direction: Vector2, slash_range: float, arc: float, damage: float) -> void:
 	director.add_heat(0.025)
-	vfx_layer.trail_pop(origin + direction * 62.0, Color(1.0, 0.18, 0.82))
+	vfx_layer.trail_pop(origin + direction * 62.0, Color(0.86, 0.58, 0.28))
 
 	for enemy in enemies:
 		if not is_instance_valid(enemy):
@@ -302,12 +302,12 @@ func _on_player_damaged(amount: float) -> void:
 	camera.offset = Vector2(randf_range(-10.0, 10.0), randf_range(-8.0, 8.0))
 	var tween := create_tween()
 	tween.tween_property(camera, "offset", Vector2.ZERO, 0.16)
-	vfx_layer.burst(player.global_position, Color(1.0, 0.12, 0.4), 24)
+	vfx_layer.burst(player.global_position, Color(0.72, 0.08, 0.04), 24)
 
 func _on_player_down() -> void:
 	run_complete = true
 	hud.show_run_failed()
-	vfx_layer.shockwave(player.global_position, Color(1.0, 0.08, 0.18))
+	vfx_layer.shockwave(player.global_position, Color(0.72, 0.08, 0.04))
 
 func _on_alert_changed(level: int, meter: float) -> void:
 	for enemy in enemies:
