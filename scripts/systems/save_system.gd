@@ -1,7 +1,7 @@
 class_name SaveSystem
 extends Node
 
-const SAVE_PATH := "user://neon_heist_save.json"
+const SAVE_PATH := "user://dust_heist_save.json"
 
 var data := {
 	"credits": 0,

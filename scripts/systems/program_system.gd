@@ -31,22 +31,20 @@ func reset() -> void:
 func can_cast(program_id: String) -> bool:
 	return unlocked.has(program_id) and cooldowns.get(program_id, 0.0) <= 0.0
 
-func cast(program_id: String, origin: Vector2, enemies: Array[Node2D]) -> Dictionary:
+func cast(program_id: String, origin: Vector2, direction: Vector2, enemies: Array[Node2D]) -> Dictionary:
 	var data: Dictionary = available_programs.get(program_id, {})
 	cooldowns[program_id] = data.get("cooldown", 3.0)
+	var aim := direction.normalized()
 
 	match program_id:
 		"deadeye":
-			for enemy in enemies:
-				if is_instance_valid(enemy) and origin.distance_to(enemy.global_position) <= 520.0:
-					enemy.apply_slow(2.8)
-			return _area_program(origin, enemies, 230.0, 10.0, 0.1, Color(0.9, 0.68, 0.32), 0.0, "deadeye")
+			return _skillshot_program(origin, aim, enemies, 760.0, 26.0, 70.0, 0.16, Color(0.9, 0.68, 0.32), "deadeye")
 		"ricochet_shot":
 			return _area_program(origin, enemies, 410.0, 38.0, 0.22, Color(0.95, 0.36, 0.1), 300.0, "ricochet")
 		"dust_veil":
 			return _area_program(origin, enemies, 210.0, 8.0, 0.06, Color(0.78, 0.58, 0.34), 0.0, "veil", 1.25)
 		"quickdraw":
-			return _area_program(origin, enemies, 170.0, 60.0, 0.18, Color(1.0, 0.86, 0.46), 0.0, "quickdraw")
+			return _skillshot_program(origin, aim, enemies, 420.0, 34.0, 60.0, 0.18, Color(1.0, 0.86, 0.46), "quickdraw")
 		_:
 			return _area_program(origin, enemies, 180.0, 24.0, 0.14, Color(1.0, 0.48, 0.08), 0.0, "")
 
@@ -89,4 +87,41 @@ func _area_program(origin: Vector2, enemies: Array[Node2D], radius: float, damag
 		"chain_radius": chain_radius,
 		"effect": effect,
 		"veil_duration": veil_duration,
+		"shot_from": origin,
+		"shot_to": origin,
+	}
+
+func _skillshot_program(origin: Vector2, direction: Vector2, enemies: Array[Node2D], shot_range: float, width: float, damage: float, heat: float, color: Color, effect: String) -> Dictionary:
+	var hit_enemies: Array[Node2D] = []
+	var shot_to := origin + direction * shot_range
+	var best_distance := INF
+	var best_enemy: Node2D = null
+	for enemy in enemies:
+		if not is_instance_valid(enemy):
+			continue
+		var to_enemy: Vector2 = enemy.global_position - origin
+		var forward_distance := to_enemy.dot(direction)
+		if forward_distance < 0.0 or forward_distance > shot_range:
+			continue
+		var closest := origin + direction * forward_distance
+		if enemy.global_position.distance_to(closest) > width:
+			continue
+		if forward_distance < best_distance:
+			best_distance = forward_distance
+			best_enemy = enemy
+
+	if best_enemy != null:
+		hit_enemies.append(best_enemy)
+		shot_to = origin + direction * best_distance
+
+	return {
+		"hit_enemies": hit_enemies,
+		"damage": damage,
+		"heat": heat,
+		"color": color,
+		"chain_radius": 0.0,
+		"effect": effect,
+		"veil_duration": 0.0,
+		"shot_from": origin,
+		"shot_to": shot_to,
 	}

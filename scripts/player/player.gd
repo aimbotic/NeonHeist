@@ -144,6 +144,9 @@ func apply_dust_veil(duration: float) -> void:
 	invulnerable = true
 	queue_redraw()
 
+func get_aim_direction() -> Vector2:
+	return _dash_direction.normalized()
+
 func get_dash_fraction() -> float:
 	return 1.0 - (_dash_cooldown_remaining / dash_cooldown)
 

@@ -1,71 +1,64 @@
-# Neon Heist
+# Dust Heist
 
-A Godot 4 prototype for an offline-first cyberpunk roguelike infiltration game. The current build is a code-native vertical prototype: one main scene creates the vault, player, enemies, programs, HUD, saves, and neon VFX at runtime.
+A Godot 4 western arena survival prototype. The current build is a fast, lethal courtyard duel game with one-hit player tension, saber quickdraw combat, outlaw skills, human enemy archetypes, and persistent blood on the sand.
 
 ## Current Prototype
 
-- Procedural room-and-corridor vault generation
-- Top-down player movement with dash invulnerability
-- Touch-drag movement support for mobile testing
-- Hack nodes that award loot and unlock additional programs
-- Extraction unlock after three hacked nodes or lockdown
-- Alert escalation director with enemy pressure scaling
-- Three enemy types: patrol drones, hunters, and turrets
-- Ten-program catalog with three starter casts implemented
-- Chain reaction hazards and screen-space neon effects
+- Bright sandy courtyard arena surrounded by old-west buildings
+- One-hit player with dash movement and saber quickdraw parry
+- Wave-based survival with knife rushers, riflemen, shotgun brutes, and duelist minibosses
+- Duelist intro cards with wind and leaf motion
+- Western skill set: Deadeye, Ricochet Shot, Dust Veil, and Quickdraw
+- Persistent blood stains and grounded dust/weapon effects
 - Local JSON save for credits and run count
 
 ## Controls
 
 - Move: WASD, arrow keys, or touch-drag
 - Dash: Space
-- Weapon slash: J or left mouse
-- Hack: E near a square node
-- Program 1, EMP Blast: 1
-- Program 2, Chain Lightning: 2
-- Program 3, Time Slow: 3
-- Restart after extraction or failure: any key
+- Saber slash: J or left mouse
+- Deadeye: 1
+- Ricochet Shot: 2
+- Dust Veil: 3
+- Quickdraw: 4
+- Restart after failure: any key
 
 ## Run It
 
 Open this folder in Godot 4 and run `scenes/Main.tscn`.
 
-A portable Godot 4 binary is installed locally at `.tools/godot/Godot_v4.6.2-stable_linux.x86_64`. You can validate the project from the terminal with:
+You can validate the project from the terminal with:
 
 ```bash
-.tools/godot/Godot_v4.6.2-stable_linux.x86_64 --headless --path . --quit
+.tools/godot/Godot_v4.6.2-stable_win64_console.exe --headless --path . --quit
 ```
-
 
 ## Play From GitHub Pages
 
 This repo includes a GitHub Actions workflow at `.github/workflows/pages.yml` that exports the Godot project to Web and deploys it to GitHub Pages whenever `main` is pushed.
 
-After pushing the repo, set GitHub Pages to use **GitHub Actions** as its source in the repository Pages settings. The workflow will publish the playable build from `build/web`.
-
 You can test the same export locally with:
 
 ```bash
-mkdir -p build/web
-.tools/godot/Godot_v4.6.2-stable_linux.x86_64 --headless --path . --export-release Web build/web/index.html
+mkdir build\web
+.tools/godot/Godot_v4.6.2-stable_win64.exe --headless --path . --export-release Web build\web\index.html
 ```
 
 ## Important Files
 
 - `scenes/Main.tscn`: boot scene
-- `scripts/game/main.gd`: run orchestration and rendering
-- `scripts/game/vault_generator.gd`: deterministic vault layout generation
-- `scripts/game/game_director.gd`: alert and escalation model
-- `scripts/player/player.gd`: movement, dash, health, mobile drag input
-- `scripts/enemies/`: enemy behaviors
-- `scripts/systems/program_system.gd`: ability catalog, cooldowns, casts
-- `scripts/systems/vfx_layer.gd`: neon pulses, beams, shockwaves
-- `scripts/ui/hud.gd`: readable-chaos HUD
+- `scripts/game/main.gd`: run orchestration, wave spawning, and arena rendering
+- `scripts/game/vault_generator.gd`: arena layout data
+- `scripts/game/game_director.gd`: danger escalation model
+- `scripts/player/player.gd`: movement, one-hit health, saber, parry, and mobile drag input
+- `scripts/enemies/`: outlaw enemy behaviors
+- `scripts/systems/program_system.gd`: western skill catalog, cooldowns, and casts
+- `scripts/systems/vfx_layer.gd`: blood, dust, weapon trails, and rifle traces
+- `scripts/ui/hud.gd`: in-game HUD and duelist intro cards
 
 ## Next Build Priorities
 
-1. Add collision walls and nav constraints so enemies and players respect room geometry.
-2. Convert procedural visuals into TileMap/TileSet layers once the look settles.
-3. Implement the remaining seven programs beyond unlock metadata.
-4. Add iOS export settings, haptics, and proper virtual controls.
-5. Add save encryption or obfuscation before production.
+1. Add score/combo ranks for stylish wave clears.
+2. Add named duelist variants with different attack patterns.
+3. Add revolver ammo and reload loops.
+4. Add sound effects, music stingers, and stronger hit freeze.

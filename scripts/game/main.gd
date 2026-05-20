@@ -28,6 +28,7 @@ var current_wave := 0
 var wave_in_progress := false
 var wave_break_timer := 0.0
 var enemies_defeated := 0
+var menu_open := true
 
 func _ready() -> void:
 	_configure_input()
@@ -49,12 +50,13 @@ func _ready() -> void:
 
 	hud = HudScene.new()
 	add_child(hud)
+	hud.play_requested.connect(_on_menu_play_requested)
 
 	add_child(enemy_root)
-	_start_run()
+	hud.show_main_menu()
 
 func _physics_process(delta: float) -> void:
-	if run_complete:
+	if menu_open or run_complete:
 		return
 
 	var heat: float = max(0.0, 1.0 - player.health / player.max_health)
@@ -274,9 +276,14 @@ func _get_vault_bounds() -> Rect2:
 	return vault_data["arena"]
 
 func _unhandled_input(event: InputEvent) -> void:
+	if menu_open:
+		return
 	if run_complete:
 		if event is InputEventKey and event.pressed:
-			_start_run()
+			menu_open = true
+			hud.show_main_menu()
+			_clear_run_entities()
+			queue_redraw()
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -293,6 +300,18 @@ func _unhandled_input(event: InputEvent) -> void:
 				_cast_program("dust_veil")
 			KEY_4:
 				_cast_program("quickdraw")
+
+func _clear_run_entities() -> void:
+	for child in enemy_root.get_children():
+		child.queue_free()
+	enemies.clear()
+	if player != null:
+		player.queue_free()
+		player = null
+
+func _on_menu_play_requested() -> void:
+	menu_open = false
+	_start_run()
 
 func _start_run() -> void:
 	run_complete = false
@@ -410,9 +429,11 @@ func _cast_program(program_id: String) -> void:
 	if not program_system.can_cast(program_id):
 		return
 
-	var result: Dictionary = program_system.cast(program_id, player.global_position, enemies)
+	var result: Dictionary = program_system.cast(program_id, player.global_position, player.get_aim_direction(), enemies)
 	director.add_heat(result["heat"])
-	vfx_layer.program_flash(player.global_position, result["color"])
+	vfx_layer.skill_flash(player.global_position, result["color"])
+	if result.get("shot_from", Vector2.ZERO) != result.get("shot_to", Vector2.ZERO):
+		vfx_layer.beam(result["shot_from"], result["shot_to"], result["color"])
 	if result.get("effect", "") == "veil":
 		player.apply_dust_veil(result.get("veil_duration", 1.0))
 	if result.get("effect", "") == "quickdraw":

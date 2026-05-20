@@ -1,4 +1,4 @@
-class_name NeonEnemy
+class_name DustEnemy
 extends CharacterBody2D
 
 signal destroyed(enemy)
@@ -34,7 +34,8 @@ func take_damage(amount: float) -> void:
 	queue_redraw()
 	if health <= 0.0:
 		if vfx_layer != null:
-			vfx_layer.burst(global_position, Color(1.0, 0.18, 0.82), 18)
+			vfx_layer.blood_spill(global_position, 12)
+			vfx_layer.burst(global_position, Color(0.32, 0.02, 0.012), 10)
 		destroyed.emit(self)
 		queue_free()
 

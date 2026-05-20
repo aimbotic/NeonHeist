@@ -1,15 +1,88 @@
-class_name NeonHud
+class_name DustHud
 extends CanvasLayer
 
+signal play_requested
+
+class SkillIcon extends Control:
+	var skill_id := ""
+	var key_label := ""
+	var cooldown_fraction := 0.0
+
+	func _draw() -> void:
+		var box := Rect2(Vector2.ZERO, size)
+		draw_rect(box, Color(0.045, 0.024, 0.014, 0.94), true)
+		draw_rect(box, Color(0.72, 0.46, 0.2, 0.88), false, 2.0)
+		draw_circle(size * 0.5, 24.0, Color(0.12, 0.06, 0.025, 0.9))
+
+		match skill_id:
+			"deadeye":
+				_draw_deadeye_icon()
+			"ricochet_shot":
+				_draw_ricochet_icon()
+			"dust_veil":
+				_draw_dust_icon()
+			"quickdraw":
+				_draw_quickdraw_icon()
+
+		draw_string(ThemeDB.fallback_font, Vector2(6.0, 16.0), key_label, HORIZONTAL_ALIGNMENT_LEFT, 16.0, 14, Color(1.0, 0.86, 0.5, 0.85))
+		if cooldown_fraction > 0.0:
+			var cover_height := size.y * cooldown_fraction
+			draw_rect(Rect2(Vector2(0.0, size.y - cover_height), Vector2(size.x, cover_height)), Color(0.02, 0.012, 0.009, 0.7), true)
+			draw_line(Vector2(0.0, size.y - cover_height), Vector2(size.x, size.y - cover_height), Color(1.0, 0.82, 0.38, 0.78), 2.0)
+
+	func set_state(id: String, key: String, fraction: float) -> void:
+		skill_id = id
+		key_label = key
+		cooldown_fraction = clampf(fraction, 0.0, 1.0)
+		queue_redraw()
+
+	func _draw_deadeye_icon() -> void:
+		var center := size * 0.5
+		draw_arc(center, 18.0, 0.0, TAU, 32, Color(0.95, 0.9, 0.76), 2.0)
+		draw_arc(center, 8.0, 0.0, TAU, 24, Color(0.95, 0.9, 0.76), 2.0)
+		draw_line(center + Vector2(-24, 0), center + Vector2(24, 0), Color(0.95, 0.9, 0.76), 2.0)
+		draw_line(center + Vector2(0, -24), center + Vector2(0, 24), Color(0.95, 0.9, 0.76), 2.0)
+		draw_circle(center, 3.0, Color(0.72, 0.08, 0.04))
+
+	func _draw_ricochet_icon() -> void:
+		var wall_x := size.x * 0.66
+		draw_line(Vector2(wall_x, 18.0), Vector2(wall_x, size.y - 14.0), Color(0.62, 0.36, 0.16), 5.0)
+		draw_line(Vector2(18.0, size.y - 18.0), Vector2(wall_x - 4.0, size.y * 0.52), Color(1.0, 0.78, 0.35), 3.0)
+		draw_line(Vector2(wall_x - 4.0, size.y * 0.52), Vector2(26.0, 18.0), Color(1.0, 0.78, 0.35), 3.0)
+		draw_circle(Vector2(wall_x - 5.0, size.y * 0.52), 5.0, Color(0.9, 0.42, 0.12))
+
+	func _draw_dust_icon() -> void:
+		for i in range(4):
+			var y := 22.0 + float(i) * 11.0
+			var start := Vector2(15.0 + float(i % 2) * 5.0, y)
+			var mid := Vector2(size.x * 0.48, y - 10.0)
+			var end := Vector2(size.x - 14.0, y + 1.0)
+			draw_polyline(PackedVector2Array([start, mid, end]), Color(0.94, 0.78, 0.48, 0.9), 3.0)
+		draw_circle(Vector2(21.0, 50.0), 4.0, Color(0.72, 0.48, 0.22, 0.7))
+		draw_circle(Vector2(38.0, 26.0), 3.0, Color(0.72, 0.48, 0.22, 0.65))
+
+	func _draw_quickdraw_icon() -> void:
+		var grip := Vector2(24.0, 46.0)
+		var barrel := Vector2(size.x - 18.0, 28.0)
+		draw_line(grip, barrel, Color(0.18, 0.08, 0.035), 8.0)
+		draw_line(grip + Vector2(3.0, 7.0), grip + Vector2(-8.0, 20.0), Color(0.24, 0.11, 0.045), 7.0)
+		draw_line(barrel - Vector2(16.0, -3.0), barrel + Vector2(9.0, -4.0), Color(0.82, 0.58, 0.28), 4.0)
+		draw_arc(grip + Vector2(12.0, 0.0), 10.0, -0.2, PI * 1.25, 14, Color(0.78, 0.45, 0.2), 3.0)
+
 var _root := Control.new()
+var _menu_root := Control.new()
+var _menu_title := Label.new()
+var _menu_panel := VBoxContainer.new()
+var _menu_detail := Label.new()
 var _health_bar := ColorRect.new()
 var _health_back := ColorRect.new()
 var _alert_label := Label.new()
 var _timer_label := Label.new()
 var _wave_label := Label.new()
-var _program_label := Label.new()
 var _message_label := Label.new()
 var _wave_banner := Label.new()
+var _death_screen := ColorRect.new()
+var _death_label := Label.new()
 var _hit_flash := ColorRect.new()
 var _duelist_overlay := Control.new()
 var _duelist_card := ColorRect.new()
@@ -17,6 +90,7 @@ var _duelist_name := Label.new()
 var _duelist_title := Label.new()
 var _duelist_art := Label.new()
 var _duelist_leaves: Array[ColorRect] = []
+var _skill_icons: Array[SkillIcon] = []
 var _elapsed := 0.0
 
 func _ready() -> void:
@@ -24,6 +98,7 @@ func _ready() -> void:
 	add_child(_root)
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_create_menu()
 
 	_health_back.color = Color(0.035, 0.022, 0.016, 0.92)
 	_health_back.position = Vector2(28, 28)
@@ -38,7 +113,7 @@ func _ready() -> void:
 	_configure_label(_alert_label, Vector2(28, 56), 18)
 	_configure_label(_timer_label, Vector2(28, 82), 18)
 	_configure_label(_wave_label, Vector2(28, 108), 18)
-	_configure_label(_program_label, Vector2(28, 142), 15)
+	_create_skill_icons()
 
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -47,6 +122,20 @@ func _ready() -> void:
 	_message_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_message_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_message_label)
+
+	_death_screen.color = Color(0.05, 0.008, 0.006, 0.0)
+	_death_screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_death_screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_death_screen)
+
+	_death_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_death_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_death_label.add_theme_font_size_override("font_size", 72)
+	_death_label.add_theme_color_override("font_color", Color(0.94, 0.82, 0.64, 0.0))
+	_death_label.text = "YOU DIED"
+	_death_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_death_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_death_label)
 
 	_wave_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_wave_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -120,13 +209,16 @@ func update_run(player, director, program_system, wave: int, enemies_remaining: 
 	_health_bar.size.x = 260.0 * health_fraction
 	_health_bar.color = Color(0.72, 0.08, 0.04) if health_fraction < 0.34 else Color(0.72, 0.42, 0.18)
 
-	_alert_label.text = "ALERT %d  %02d%%" % [director.alert_level, int(director.alert_meter * 100.0)]
+	_alert_label.text = "DANGER %d  %02d%%" % [director.alert_level, int(director.alert_meter * 100.0)]
 	_timer_label.text = "TIME %02d:%02d" % [int(_elapsed / 60.0), int(_elapsed) % 60]
 	_wave_label.text = "WAVE %d  ENEMIES %d" % [wave, enemies_remaining]
-	_program_label.text = _format_programs(program_system)
+	_update_skill_icons(program_system)
 
 func show_run_start(seed_value: int) -> void:
 	_elapsed = 0.0
+	_death_screen.color.a = 0.0
+	_death_label.modulate.a = 1.0
+	_death_label.add_theme_color_override("font_color", Color(0.94, 0.82, 0.64, 0.0))
 	_message_label.text = "DUST HEIST\nSEED %d" % seed_value
 	var tween := create_tween()
 	tween.tween_interval(1.15)
@@ -141,8 +233,28 @@ func show_run_complete(credits: int) -> void:
 	_message_label.text = "EXTRACTED\n+%d CREDITS\nPRESS ANY KEY" % credits
 
 func show_run_failed() -> void:
-	_message_label.modulate.a = 1.0
-	_message_label.text = "GHOST LOST\nPRESS ANY KEY"
+	_message_label.text = ""
+	_death_screen.color.a = 0.0
+	_death_label.add_theme_color_override("font_color", Color(0.94, 0.82, 0.64, 0.0))
+	var tween := create_tween()
+	tween.tween_property(_death_screen, "color:a", 0.82, 0.65)
+	tween.parallel().tween_method(
+		func(alpha: float) -> void:
+			_death_label.add_theme_color_override("font_color", Color(0.94, 0.82, 0.64, alpha)),
+		0.0,
+		1.0,
+		0.85
+	)
+
+func show_main_menu() -> void:
+	_menu_root.visible = true
+	_menu_detail.text = "Choose your loadout, then enter the courtyard."
+	_death_screen.color.a = 0.0
+	_death_label.add_theme_color_override("font_color", Color(0.94, 0.82, 0.64, 0.0))
+	_message_label.text = ""
+
+func hide_main_menu() -> void:
+	_menu_root.visible = false
 
 func show_wave_banner(wave: int) -> void:
 	_wave_banner.text = "WAVE %d" % wave
@@ -202,16 +314,84 @@ func _configure_label(label: Label, position: Vector2, font_size: int) -> void:
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(label)
 
-func _format_programs(program_system) -> String:
-	var parts: Array[String] = []
-	for program in program_system.get_equipped_summary():
-		var label: String = program["name"]
-		if program["cooldown"] > 0.0:
-			label += " %.1f" % program["cooldown"]
-		parts.append(label)
-	var text := "ABILITIES  "
-	for i in range(parts.size()):
-		if i > 0:
-			text += "  |  "
-		text += parts[i]
-	return text
+func _create_menu() -> void:
+	_menu_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_menu_root.mouse_filter = Control.MOUSE_FILTER_STOP
+	_root.add_child(_menu_root)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.06, 0.026, 0.012, 0.94)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_menu_root.add_child(backdrop)
+
+	_menu_title.text = "DUST HEIST"
+	_menu_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_menu_title.add_theme_font_size_override("font_size", 68)
+	_menu_title.add_theme_color_override("font_color", Color(0.95, 0.78, 0.45))
+	_menu_title.position = Vector2(0, 80)
+	_menu_title.size = Vector2(900, 82)
+	_menu_title.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_menu_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_menu_root.add_child(_menu_title)
+
+	_menu_panel.position = Vector2(72, 210)
+	_menu_panel.size = Vector2(260, 280)
+	_menu_panel.add_theme_constant_override("separation", 12)
+	_menu_root.add_child(_menu_panel)
+
+	_add_menu_button("PLAY", func() -> void:
+		hide_main_menu()
+		play_requested.emit()
+	)
+	_add_menu_button("SELECT BLADE", func() -> void:
+		_menu_detail.text = "Blade: Saber\nFast quickdraw, wide slash arc, last-second parry."
+	)
+	_add_menu_button("SELECT GUN", func() -> void:
+		_menu_detail.text = "Gun: Revolver\nQuickdraw skillshot, Deadeye long shot, Ricochet round."
+	)
+	_add_menu_button("SETTINGS", func() -> void:
+		_menu_detail.text = "Settings\nWASD moves, J or mouse slashes, 1-4 uses skills."
+	)
+
+	_menu_detail.position = Vector2(380, 228)
+	_menu_detail.size = Vector2(420, 180)
+	_menu_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_menu_detail.add_theme_font_size_override("font_size", 28)
+	_menu_detail.add_theme_color_override("font_color", Color(0.98, 0.9, 0.76))
+	_menu_detail.text = "Choose your loadout, then enter the courtyard."
+	_menu_detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_menu_root.add_child(_menu_detail)
+
+func _add_menu_button(text: String, callback: Callable) -> void:
+	var button := Button.new()
+	button.text = text
+	button.custom_minimum_size = Vector2(250, 52)
+	button.add_theme_font_size_override("font_size", 22)
+	button.add_theme_color_override("font_color", Color(0.98, 0.9, 0.76))
+	button.add_theme_color_override("font_hover_color", Color(1.0, 0.78, 0.36))
+	button.pressed.connect(callback)
+	_menu_panel.add_child(button)
+
+func _create_skill_icons() -> void:
+	var ids := ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
+	for i in range(ids.size()):
+		var icon := SkillIcon.new()
+		icon.position = Vector2(28.0 + i * 66.0, 142.0)
+		icon.size = Vector2(54.0, 54.0)
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.set_state(ids[i], str(i + 1), 0.0)
+		_skill_icons.append(icon)
+		_root.add_child(icon)
+
+func _update_skill_icons(program_system) -> void:
+	var summary: Dictionary = {}
+	for skill in program_system.get_equipped_summary():
+		summary[skill["id"]] = skill
+
+	for icon in _skill_icons:
+		var skill: Dictionary = summary.get(icon.skill_id, {})
+		var max_cooldown: float = skill.get("max_cooldown", 1.0)
+		var cooldown: float = skill.get("cooldown", 0.0)
+		var fraction := 0.0 if max_cooldown <= 0.0 else cooldown / max_cooldown
+		icon.set_state(icon.skill_id, icon.key_label, fraction)

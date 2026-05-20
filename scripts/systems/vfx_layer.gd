@@ -3,6 +3,7 @@ extends Node2D
 
 var _pulses: Array[Dictionary] = []
 var _beams: Array[Dictionary] = []
+var _blood_stains: Array[Dictionary] = []
 
 func _process(delta: float) -> void:
 	for pulse in _pulses:
@@ -14,6 +15,14 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	for stain in _blood_stains:
+		var origin: Vector2 = stain["origin"]
+		var color: Color = stain["color"]
+		var radius: float = stain["radius"]
+		draw_circle(origin, radius, color)
+		for drop in stain["drops"]:
+			draw_circle(origin + drop["offset"], drop["radius"], color.darkened(drop["darken"]))
+
 	for pulse in _pulses:
 		var t: float = pulse["age"] / pulse["life"]
 		var color: Color = pulse["color"]
@@ -37,6 +46,23 @@ func burst(origin: Vector2, color: Color, count: int) -> void:
 			"width": randf_range(1.0, 3.0),
 		})
 
+func blood_spill(origin: Vector2, amount: int = 9) -> void:
+	var drops: Array[Dictionary] = []
+	for i in range(amount):
+		drops.append({
+			"offset": Vector2.RIGHT.rotated(randf() * TAU) * randf_range(8.0, 46.0),
+			"radius": randf_range(3.0, 13.0),
+			"darken": randf_range(0.05, 0.38),
+		})
+	_blood_stains.append({
+		"origin": origin,
+		"radius": randf_range(13.0, 24.0),
+		"color": Color(0.24, 0.006, 0.004, 0.72),
+		"drops": drops,
+	})
+	if _blood_stains.size() > 90:
+		_blood_stains.pop_front()
+
 func shockwave(origin: Vector2, color: Color) -> void:
 	_pulses.append({
 		"origin": origin,
@@ -57,9 +83,12 @@ func trail_pop(origin: Vector2, color: Color) -> void:
 		"width": 4.0,
 	})
 
-func program_flash(origin: Vector2, color: Color) -> void:
+func skill_flash(origin: Vector2, color: Color) -> void:
 	shockwave(origin, color)
 	burst(origin, color, 8)
+
+func program_flash(origin: Vector2, color: Color) -> void:
+	skill_flash(origin, color)
 
 func beam(from: Vector2, to: Vector2, color: Color) -> void:
 	_beams.append({

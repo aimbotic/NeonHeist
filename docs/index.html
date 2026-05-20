@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Neon Heist</title>
+    <title>Dust Heist</title>
     <style>
       :root {
         color-scheme: dark;
-        --bg: #07020f;
-        --cyan: #19f6ff;
-        --magenta: #ff2bd6;
-        --orange: #ff8a1c;
-        --text: #edfaff;
+        --bg: #130904;
+        --sand: #e6b24a;
+        --blood: #6f0805;
+        --wood: #7a3d16;
+        --text: #fff7e8;
       }
 
       body {
@@ -20,11 +20,11 @@
         display: grid;
         place-items: center;
         background:
-          linear-gradient(135deg, rgba(25, 246, 255, 0.12), transparent 34%),
-          radial-gradient(circle at 76% 20%, rgba(255, 43, 214, 0.22), transparent 30%),
+          linear-gradient(180deg, rgba(230, 178, 74, 0.22), transparent 38%),
+          radial-gradient(circle at 75% 18%, rgba(111, 8, 5, 0.28), transparent 28%),
           var(--bg);
         color: var(--text);
-        font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font: 16px/1.5 Georgia, "Times New Roman", serif;
       }
 
       main {
@@ -37,7 +37,7 @@
         line-height: 0.9;
         letter-spacing: 0;
         text-transform: uppercase;
-        text-shadow: 0 0 28px rgba(25, 246, 255, 0.45);
+        text-shadow: 0 8px 0 rgba(0, 0, 0, 0.35);
       }
 
       p {
@@ -47,7 +47,7 @@
       }
 
       a {
-        color: var(--cyan);
+        color: var(--sand);
       }
 
       .meta {
@@ -57,22 +57,22 @@
       }
 
       .chip {
-        border: 1px solid rgba(25, 246, 255, 0.42);
+        border: 1px solid rgba(230, 178, 74, 0.55);
         border-radius: 6px;
         padding: 8px 12px;
-        color: #bffcff;
-        background: rgba(3, 12, 22, 0.58);
+        color: #ffe0a2;
+        background: rgba(60, 26, 9, 0.78);
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>Neon Heist</h1>
-      <p>A cyberpunk roguelike infiltration prototype built in Godot 4.</p>
+      <h1>Dust Heist</h1>
+      <p>A western courtyard survival game built in Godot 4, with saber quickdraws, outlaw skills, and bloody sand.</p>
       <div class="meta">
-        <span class="chip">Offline-first</span>
-        <span class="chip">Procedural vaults</span>
-        <span class="chip">Readable chaos</span>
+        <span class="chip">One-hit duels</span>
+        <span class="chip">Western waves</span>
+        <span class="chip">Saber quickdraw</span>
       </div>
     </main>
   </body>

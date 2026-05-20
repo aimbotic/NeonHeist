@@ -1,18 +1,17 @@
-# Neon Heist MVP Plan
+# Dust Heist MVP Plan
 
 ## Prototype Status
 
-The initial Godot scaffold targets the PRD Phase 1 prototype: movement, camera behavior, procedural rooms, one biome, enemies, hacking, extraction, and VFX feedback.
+The current Godot prototype is a western arena survival game: one sandy courtyard, one-hit player tension, saber quickdraw combat, outlaw skills, wave pressure, and human enemy archetypes.
 
 ## MVP Gap List
 
-- Biomes: only the Financial Mainframe palette/feel exists. Add Quantum Archive as the second MVP biome.
-- Programs: ten programs are cataloged, but only EMP Blast, Chain Lightning, and Time Slow have full cast behavior.
-- Progression: credits and runs persist locally; class/cosmetic unlock flows still need UI and rules.
-- Soundtrack: no dynamic music system yet.
-- Saves: local save exists, but encryption is not implemented.
-- iOS: project uses mobile renderer/orientation settings, but needs export preset and device profiling.
+- Scoring: add combo, style rank, perfect wave bonuses, and end-of-run breakdowns.
+- Duelists: add named miniboss variants with readable intro cards and distinct attack patterns.
+- Gunplay: add a player revolver with ammo and reload loops that support the saber.
+- Polish: add hit stop, richer blood decals, sound effects, and music stingers.
+- Input: improve mobile controls and add clearer ability prompts.
 
 ## Recommended Next Slice
 
-Build collision-aware vault geometry and extraction flow polish first. That will make every later system easier to tune because movement, pressure, and readability depend on the map having real boundaries.
+Build the combo/style scoring loop next. It will make the fast western combat more replayable and push the game closer to the clean, stylish arena-survival feel.
