@@ -74,6 +74,7 @@ var _menu_root := Control.new()
 var _menu_title := Label.new()
 var _menu_panel := VBoxContainer.new()
 var _menu_detail := Label.new()
+var _menu_content := HBoxContainer.new()
 var _health_bar := ColorRect.new()
 var _health_back := ColorRect.new()
 var _alert_label := Label.new()
@@ -329,16 +330,25 @@ func _create_menu() -> void:
 	_menu_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_menu_title.add_theme_font_size_override("font_size", 68)
 	_menu_title.add_theme_color_override("font_color", Color(0.95, 0.78, 0.45))
-	_menu_title.position = Vector2(0, 80)
-	_menu_title.size = Vector2(900, 82)
 	_menu_title.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_menu_title.offset_left = 0.0
+	_menu_title.offset_top = 58.0
+	_menu_title.offset_right = 0.0
+	_menu_title.offset_bottom = 140.0
 	_menu_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_menu_root.add_child(_menu_title)
 
-	_menu_panel.position = Vector2(72, 210)
-	_menu_panel.size = Vector2(260, 280)
+	_menu_content.set_anchors_preset(Control.PRESET_CENTER)
+	_menu_content.offset_left = -360.0
+	_menu_content.offset_top = -95.0
+	_menu_content.offset_right = 360.0
+	_menu_content.offset_bottom = 145.0
+	_menu_content.add_theme_constant_override("separation", 48)
+	_menu_root.add_child(_menu_content)
+
+	_menu_panel.custom_minimum_size = Vector2(270, 244)
 	_menu_panel.add_theme_constant_override("separation", 12)
-	_menu_root.add_child(_menu_panel)
+	_menu_content.add_child(_menu_panel)
 
 	_add_menu_button("PLAY", func() -> void:
 		hide_main_menu()
@@ -354,20 +364,20 @@ func _create_menu() -> void:
 		_menu_detail.text = "Settings\nWASD moves, J or mouse slashes, 1-4 uses skills."
 	)
 
-	_menu_detail.position = Vector2(380, 228)
-	_menu_detail.size = Vector2(420, 180)
+	_menu_detail.custom_minimum_size = Vector2(400, 244)
 	_menu_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_menu_detail.add_theme_font_size_override("font_size", 28)
+	_menu_detail.add_theme_font_size_override("font_size", 24)
+	_menu_detail.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_menu_detail.add_theme_color_override("font_color", Color(0.98, 0.9, 0.76))
 	_menu_detail.text = "Choose your loadout, then enter the courtyard."
 	_menu_detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_menu_root.add_child(_menu_detail)
+	_menu_content.add_child(_menu_detail)
 
 func _add_menu_button(text: String, callback: Callable) -> void:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size = Vector2(250, 52)
-	button.add_theme_font_size_override("font_size", 22)
+	button.custom_minimum_size = Vector2(270, 52)
+	button.add_theme_font_size_override("font_size", 20)
 	button.add_theme_color_override("font_color", Color(0.98, 0.9, 0.76))
 	button.add_theme_color_override("font_hover_color", Color(1.0, 0.78, 0.36))
 	button.pressed.connect(callback)
