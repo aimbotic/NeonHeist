@@ -101,7 +101,7 @@ func _configure_label(label: Label, position: Vector2, font_size: int) -> void:
 	label.position = position
 	label.size = Vector2(560, 24)
 	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", Color(0.82, 0.57, 0.32))
+	label.add_theme_color_override("font_color", Color.WHITE)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(label)
 
@@ -112,7 +112,7 @@ func _format_programs(program_system) -> String:
 		if program["cooldown"] > 0.0:
 			label += " %.1f" % program["cooldown"]
 		parts.append(label)
-	var text := "RELICS  "
+	var text := "ABILITIES  "
 	for i in range(parts.size()):
 		if i > 0:
 			text += "  |  "

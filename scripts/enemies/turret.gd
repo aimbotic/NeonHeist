@@ -58,14 +58,13 @@ func _draw() -> void:
 		-side * 13.0 - facing * 22.0,
 		-side * 17.0 + facing * 2.0,
 	])
+	_draw_crawling_legs(facing, side, color, 0.9, 0.0)
 	draw_colored_polygon(poncho, Color(0.028, 0.018, 0.014, 0.98))
 	draw_polyline(PackedVector2Array([poncho[0], poncho[1], poncho[2], poncho[3], poncho[4], poncho[0]]), color, 4.0)
 	draw_circle(facing * 8.0, 8.0, Color(0.08, 0.045, 0.03, 1.0))
 	draw_line(facing * 8.0 - side * 18.0, facing * 10.0 + side * 18.0, Color(0.012, 0.009, 0.008, 1.0), 7.0)
-	draw_line(-side * 8.0 - facing * 13.0, -side * 15.0 - facing * 27.0, Color(0.012, 0.009, 0.008, 1.0), 5.0)
-	draw_line(side * 8.0 - facing * 13.0, side * 15.0 - facing * 27.0, Color(0.012, 0.009, 0.008, 1.0), 5.0)
-	draw_line(-side * 13.0 + facing * 1.0, -side * 30.0 + facing * 12.0, Color(0.035, 0.022, 0.016, 1.0), 5.0)
-	draw_line(side * 12.0 + facing * 1.0, side * 29.0 + facing * 9.0, Color(0.035, 0.022, 0.016, 1.0), 5.0)
+	draw_line(-side * 13.0 + facing * 1.0, -side * 28.0 + facing * 7.0, Color(0.035, 0.022, 0.016, 1.0), 5.0)
+	draw_line(side * 12.0 + facing * 1.0, side * 27.0 + facing * 7.0, Color(0.035, 0.022, 0.016, 1.0), 5.0)
 	draw_line(facing * 15.0, facing * 52.0, Color(0.86, 0.52, 0.22), 6.0)
 	draw_line(facing * 20.0, facing * 58.0, Color(0.16, 0.09, 0.04), 2.0)
 

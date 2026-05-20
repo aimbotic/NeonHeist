@@ -207,7 +207,6 @@ func _update_wave(delta: float) -> void:
 	if wave_in_progress and enemies.is_empty():
 		wave_in_progress = false
 		wave_break_timer = 1.15
-		program_system.award_random_program()
 		director.add_heat(-0.35)
 
 	if not wave_in_progress and wave_break_timer > 0.0:

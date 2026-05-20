@@ -126,6 +126,8 @@ func _draw_character() -> void:
 	var origin: Vector2 = Vector2(0.0, idle_bob)
 	var cape_sway: float = sin(_anim_time * 2.8) * 8.0 + sin(_anim_time * 5.1) * 2.5
 	var cape_lift: float = sin(_anim_time * 1.7) * 3.0
+	var hair_sway: float = sin(_anim_time * 3.0 + 0.7) * 7.0 + sin(_anim_time * 5.4) * 2.0
+	var hair_lift: float = sin(_anim_time * 2.1 + 1.2) * 2.0
 	var look: Vector2 = facing * 5.0
 	var head: Vector2 = origin + Vector2(0.0, -25.0) + look
 	var chest: Vector2 = origin + Vector2(0.0, -5.0)
@@ -171,11 +173,35 @@ func _draw_character() -> void:
 		cape[5],
 		cape[5] + side * 7.0 + facing * 9.0,
 	])
+	var hair_mass := PackedVector2Array([
+		head + Vector2(-9.0, -4.0),
+		head + Vector2(7.0, -5.0),
+		chest + Vector2(13.0 + hair_sway * 0.25, -3.0 + hair_lift),
+		hips + Vector2(18.0 + hair_sway * 0.75, 21.0 + hair_lift),
+		hips + Vector2(4.0 + hair_sway * 0.45, 46.0),
+		chest + Vector2(-15.0 + hair_sway * 0.18, 14.0),
+	])
 
 	draw_circle(origin + Vector2(0.0, 10.0), 20.0, Color(0.0, 0.0, 0.0, 0.35))
 	draw_colored_polygon(cape, Color(0.018, 0.014, 0.012, 0.96))
 	draw_colored_polygon(cape_torn_edge, Color(0.09, 0.052, 0.028, 0.82))
 	draw_polyline(PackedVector2Array([cape[0], cape[1], cape[2], cape[3], cape[4], cape[5]]), Color(0.24, 0.15, 0.09, 0.82), 2.0)
+	draw_colored_polygon(hair_mass, Color(0.012, 0.01, 0.009, 0.98))
+	draw_polyline(PackedVector2Array([
+		head + Vector2(-8.0, 1.0),
+		chest + Vector2(-18.0 + hair_sway * 0.2, 10.0),
+		hips + Vector2(-8.0 + hair_sway * 0.34, 42.0),
+	]), Color(0.04, 0.026, 0.018, 0.92), 4.0)
+	draw_polyline(PackedVector2Array([
+		head + Vector2(1.0, 0.0),
+		chest + Vector2(5.0 + hair_sway * 0.42, 16.0 + hair_lift),
+		hips + Vector2(12.0 + hair_sway * 0.78, 54.0),
+	]), Color(0.055, 0.035, 0.022, 0.86), 5.0)
+	draw_polyline(PackedVector2Array([
+		head + Vector2(7.0, 1.0),
+		chest + Vector2(16.0 + hair_sway * 0.55, 7.0 + hair_lift),
+		hips + Vector2(23.0 + hair_sway, 34.0),
+	]), Color(0.032, 0.022, 0.016, 0.9), 3.0)
 	draw_colored_polygon(cloak, Color(0.028, 0.023, 0.02, 0.98))
 	draw_polyline(PackedVector2Array([cloak[0], cloak[1], cloak[2], cloak[3], cloak[4], cloak[5], cloak[0]]), Color(0.26, 0.18, 0.12, 0.85), 2.0)
 	draw_line(chest + Vector2(-15.0, 0.0), left_hand, Color(0.82, 0.8, 0.72, 0.96), 5.0)
