@@ -117,6 +117,20 @@ func get_dash_fraction() -> float:
 func _draw_character() -> void:
 	var facing := _dash_direction.normalized()
 	var side := facing.orthogonal()
+	var cloak := PackedVector2Array([
+		-side * 18.0 + facing * 4.0,
+		-side * 34.0 - facing * 12.0,
+		-side * 30.0 - facing * 42.0,
+		-side * 18.0 - facing * 56.0,
+		-side * 5.0 - facing * 35.0,
+	])
+	var cloak_fringe := PackedVector2Array([
+		-side * 30.0 - facing * 42.0,
+		-side * 23.0 - facing * 51.0,
+		-side * 18.0 - facing * 56.0,
+		-side * 12.0 - facing * 48.0,
+		-side * 5.0 - facing * 35.0,
+	])
 	var duster := PackedVector2Array([
 		facing * 22.0,
 		side * 18.0 + facing * 4.0,
@@ -132,40 +146,53 @@ func _draw_character() -> void:
 		-side * 7.0 + facing * 2.0,
 	])
 	var hat_brim := PackedVector2Array([
-		facing * 21.0,
-		side * 24.0 + facing * 8.0,
-		side * 28.0 - facing * 2.0,
-		side * 10.0 - facing * 12.0,
-		-side * 10.0 - facing * 12.0,
-		-side * 28.0 - facing * 2.0,
-		-side * 24.0 + facing * 8.0,
+		facing * 24.0,
+		side * 31.0 + facing * 9.0,
+		side * 35.0 - facing * 2.0,
+		side * 13.0 - facing * 15.0,
+		-side * 13.0 - facing * 15.0,
+		-side * 35.0 - facing * 2.0,
+		-side * 31.0 + facing * 9.0,
 	])
 	var hat_crown := PackedVector2Array([
-		facing * 20.0,
-		side * 10.0 + facing * 12.0,
-		side * 9.0 - facing * 5.0,
-		-side * 9.0 - facing * 5.0,
-		-side * 10.0 + facing * 12.0,
+		facing * 23.0,
+		side * 11.0 + facing * 14.0,
+		side * 10.0 - facing * 7.0,
+		-side * 10.0 - facing * 7.0,
+		-side * 11.0 + facing * 14.0,
+	])
+	var hair := PackedVector2Array([
+		-side * 12.0 + facing * 7.0,
+		-side * 23.0 - facing * 9.0,
+		-side * 18.0 - facing * 31.0,
+		side * 3.0 - facing * 22.0,
+		side * 6.0 - facing * 6.0,
 	])
 
 	draw_circle(-facing * 12.0, 22.0, Color(0.0, 0.0, 0.0, 0.25))
-	draw_colored_polygon(duster, Color(0.47, 0.24, 0.11, 0.98))
-	draw_polyline(PackedVector2Array([duster[0], duster[1], duster[2], duster[3], duster[4], duster[0]]), Color(0.95, 0.61, 0.27, 0.92), 2.5)
-	draw_colored_polygon(shirt, Color(0.12, 0.055, 0.045, 1.0))
-	draw_line(-side * 7.0 - facing * 11.0, -side * 16.0 - facing * 31.0, Color(0.075, 0.035, 0.03, 1.0), 5.0)
-	draw_line(side * 7.0 - facing * 11.0, side * 16.0 - facing * 31.0, Color(0.075, 0.035, 0.03, 1.0), 5.0)
-	draw_line(-side * 8.0 - facing * 31.0, -side * 18.0 - facing * 38.0, Color(0.02, 0.015, 0.02, 1.0), 4.0)
-	draw_line(side * 8.0 - facing * 31.0, side * 18.0 - facing * 38.0, Color(0.02, 0.015, 0.02, 1.0), 4.0)
-	draw_line(-side * 17.0 + facing * 2.0, -side * 31.0 - facing * 6.0, Color(0.23, 0.11, 0.055, 1.0), 5.0)
-	draw_line(side * 17.0 + facing * 2.0, side * 31.0 - facing * 6.0, Color(0.23, 0.11, 0.055, 1.0), 5.0)
-	draw_line(side * 12.0 - facing * 4.0, side * 20.0 - facing * 15.0, Color(0.95, 0.61, 0.27, 0.95), 3.0)
-	draw_circle(facing * 9.0, 9.5, Color(0.78, 0.52, 0.38, 0.98))
-	draw_colored_polygon(hat_brim, Color(0.34, 0.17, 0.075, 1.0))
-	draw_polyline(PackedVector2Array([hat_brim[0], hat_brim[1], hat_brim[2], hat_brim[3], hat_brim[4], hat_brim[5], hat_brim[6], hat_brim[0]]), Color(0.95, 0.61, 0.27, 0.88), 2.0)
-	draw_colored_polygon(hat_crown, Color(0.43, 0.22, 0.095, 1.0))
-	draw_line(facing * 9.0 - side * 12.0, facing * 13.0 + side * 12.0, Color(0.015, 0.01, 0.015, 0.95), 8.0)
-	draw_line(facing * 10.0 - side * 10.0, facing * 13.0 + side * 10.0, Color(0.95, 0.61, 0.27, 0.55), 1.5)
-	draw_arc(Vector2.ZERO, 31.0, facing.angle() - PI * 0.78, facing.angle() + PI * 0.78, 22, Color(0.95, 0.61, 0.27, 0.5), 2.0)
+	draw_colored_polygon(cloak, Color(0.09, 0.055, 0.035, 0.98))
+	draw_colored_polygon(cloak_fringe, Color(0.18, 0.095, 0.045, 0.88))
+	draw_polyline(PackedVector2Array([cloak[0], cloak[1], cloak[2], cloak[3], cloak[4]]), Color(0.68, 0.36, 0.16, 0.75), 2.0)
+	draw_colored_polygon(duster, Color(0.13, 0.075, 0.045, 0.98))
+	draw_polyline(PackedVector2Array([duster[0], duster[1], duster[2], duster[3], duster[4], duster[0]]), Color(0.67, 0.37, 0.17, 0.82), 2.5)
+	draw_colored_polygon(shirt, Color(0.035, 0.025, 0.02, 1.0))
+	draw_line(-side * 7.0 - facing * 11.0, -side * 16.0 - facing * 31.0, Color(0.035, 0.025, 0.02, 1.0), 5.0)
+	draw_line(side * 7.0 - facing * 11.0, side * 16.0 - facing * 31.0, Color(0.035, 0.025, 0.02, 1.0), 5.0)
+	draw_line(-side * 8.0 - facing * 31.0, -side * 18.0 - facing * 38.0, Color(0.015, 0.012, 0.012, 1.0), 4.0)
+	draw_line(side * 8.0 - facing * 31.0, side * 18.0 - facing * 38.0, Color(0.015, 0.012, 0.012, 1.0), 4.0)
+	draw_line(-side * 17.0 + facing * 2.0, -side * 31.0 - facing * 6.0, Color(0.06, 0.035, 0.025, 1.0), 5.0)
+	draw_line(side * 17.0 + facing * 2.0, side * 31.0 - facing * 6.0, Color(0.06, 0.035, 0.025, 1.0), 5.0)
+	draw_line(side * 12.0 - facing * 4.0, side * 20.0 - facing * 15.0, Color(0.7, 0.38, 0.17, 0.95), 3.0)
+	draw_colored_polygon(hair, Color(0.01, 0.008, 0.008, 1.0))
+	draw_circle(facing * 9.0, 9.5, Color(0.62, 0.42, 0.31, 0.98))
+	draw_line(facing * 9.0 - side * 10.0, facing * 12.0 + side * 10.0, Color(0.015, 0.01, 0.01, 1.0), 11.0)
+	draw_line(facing * 3.0 - side * 5.0, facing * 0.0 - side * 12.0, Color(0.01, 0.008, 0.008, 1.0), 4.0)
+	draw_colored_polygon(hat_brim, Color(0.025, 0.018, 0.015, 1.0))
+	draw_polyline(PackedVector2Array([hat_brim[0], hat_brim[1], hat_brim[2], hat_brim[3], hat_brim[4], hat_brim[5], hat_brim[6], hat_brim[0]]), Color(0.55, 0.31, 0.14, 0.8), 2.0)
+	draw_colored_polygon(hat_crown, Color(0.05, 0.035, 0.025, 1.0))
+	draw_line(facing * 8.0 - side * 12.0, facing * 11.0 + side * 12.0, Color(0.0, 0.0, 0.0, 0.98), 9.0)
+	draw_line(facing * 13.0 - side * 11.0, facing * 16.0 + side * 11.0, Color(0.68, 0.36, 0.16, 0.5), 1.5)
+	draw_arc(Vector2.ZERO, 34.0, facing.angle() - PI * 0.78, facing.angle() + PI * 0.78, 22, Color(0.68, 0.36, 0.16, 0.45), 2.0)
 
 func _draw_blade() -> void:
 	var blade_direction := _get_blade_direction()

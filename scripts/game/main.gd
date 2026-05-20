@@ -28,7 +28,7 @@ var loot_collected := 0
 
 func _ready() -> void:
 	_configure_input()
-	RenderingServer.set_default_clear_color(Color(0.015, 0.01, 0.03, 1.0))
+	RenderingServer.set_default_clear_color(Color(0.33, 0.19, 0.08, 1.0))
 
 	save_system = SaveSystemScene.new()
 	add_child(save_system)
@@ -64,15 +64,19 @@ func _draw() -> void:
 	if vault_data.is_empty():
 		return
 
+	_draw_arcade_desert_backdrop()
+
 	for corridor in vault_data["corridors"]:
-		draw_line(corridor["from"], corridor["to"], Color(0.05, 0.75, 0.9, 0.28), 72.0)
-		draw_line(corridor["from"], corridor["to"], Color(0.75, 0.08, 0.95, 0.18), 28.0)
+		draw_line(corridor["from"], corridor["to"], Color(0.74, 0.43, 0.16, 0.52), 84.0)
+		draw_line(corridor["from"], corridor["to"], Color(0.95, 0.68, 0.28, 0.38), 48.0)
+		draw_line(corridor["from"], corridor["to"], Color(0.2, 0.95, 1.0, 0.22), 8.0)
 
 	for room in vault_data["rooms"]:
 		var rect: Rect2 = room["rect"]
-		draw_rect(rect, Color(0.04, 0.025, 0.08, 0.94), true)
-		draw_rect(rect, Color(0.1, 0.92, 1.0, 0.46), false, 3.0)
-		draw_rect(rect.grow(-9.0), Color(1.0, 0.18, 0.82, 0.18), false, 2.0)
+		draw_rect(rect, Color(0.56, 0.31, 0.12, 0.94), true)
+		draw_rect(rect.grow(-10.0), Color(0.76, 0.47, 0.19, 0.52), false, 2.0)
+		draw_rect(rect, Color(1.0, 0.63, 0.18, 0.48), false, 4.0)
+		draw_rect(rect.grow(-18.0), Color(0.1, 0.92, 1.0, 0.16), false, 2.0)
 
 	for hazard in vault_data["hazards"]:
 		draw_circle(hazard, 22.0, Color(1.0, 0.38, 0.05, 0.38))
@@ -87,6 +91,48 @@ func _draw() -> void:
 	var extraction_color := Color(0.2, 1.0, 0.45, 0.95) if extraction_open else Color(1.0, 0.25, 0.15, 0.8)
 	draw_circle(vault_data["extraction"], 58.0, Color(extraction_color.r, extraction_color.g, extraction_color.b, 0.18))
 	draw_arc(vault_data["extraction"], 72.0, 0.0, TAU, 48, extraction_color, 5.0)
+
+func _draw_arcade_desert_backdrop() -> void:
+	var bounds := _get_vault_bounds().grow(520.0)
+	draw_rect(bounds, Color(0.35, 0.2, 0.08, 1.0), true)
+
+	var horizon_y := bounds.position.y + bounds.size.y * 0.22
+	draw_rect(Rect2(bounds.position, Vector2(bounds.size.x, bounds.size.y * 0.24)), Color(0.12, 0.045, 0.08, 1.0), true)
+	draw_line(Vector2(bounds.position.x, horizon_y), Vector2(bounds.end.x, horizon_y), Color(1.0, 0.38, 0.16, 0.48), 4.0)
+
+	for i in range(7):
+		var t := float(i) / 6.0
+		var y := lerpf(horizon_y + 50.0, bounds.end.y - 80.0, t)
+		var alpha := lerpf(0.2, 0.06, t)
+		draw_line(Vector2(bounds.position.x, y), Vector2(bounds.end.x, y), Color(1.0, 0.74, 0.28, alpha), 2.0)
+
+	for i in range(12):
+		var x := bounds.position.x + i * 220.0
+		draw_line(Vector2(x, horizon_y), Vector2(x - 260.0, bounds.end.y), Color(1.0, 0.45, 0.18, 0.08), 2.0)
+		draw_line(Vector2(x, horizon_y), Vector2(x + 260.0, bounds.end.y), Color(1.0, 0.45, 0.18, 0.08), 2.0)
+
+	for i in range(9):
+		var dune_y := bounds.position.y + bounds.size.y * (0.36 + i * 0.055)
+		var start := Vector2(bounds.position.x - 80.0, dune_y)
+		var end := Vector2(bounds.end.x + 80.0, dune_y + sin(i * 1.7) * 52.0)
+		draw_line(start, end, Color(0.8, 0.48, 0.18, 0.18), 10.0)
+
+	for i in range(10):
+		var mesa_x := bounds.position.x + 160.0 + i * 310.0
+		var mesa_w := 90.0 + float((i * 37) % 70)
+		var mesa_h := 55.0 + float((i * 23) % 80)
+		var mesa_rect := Rect2(Vector2(mesa_x, horizon_y - mesa_h), Vector2(mesa_w, mesa_h))
+		draw_rect(mesa_rect, Color(0.21, 0.095, 0.06, 0.78), true)
+		draw_rect(mesa_rect, Color(0.8, 0.38, 0.16, 0.36), false, 2.0)
+
+func _get_vault_bounds() -> Rect2:
+	var bounds := Rect2(vault_data["spawn"], Vector2.ZERO)
+	for room in vault_data["rooms"]:
+		bounds = bounds.merge(room["rect"])
+	for corridor in vault_data["corridors"]:
+		bounds = bounds.expand(corridor["from"])
+		bounds = bounds.expand(corridor["to"])
+	return bounds
 
 func _unhandled_input(event: InputEvent) -> void:
 	if run_complete:
