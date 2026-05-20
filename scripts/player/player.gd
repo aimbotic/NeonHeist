@@ -118,20 +118,20 @@ func get_dash_fraction() -> float:
 	return 1.0 - (_dash_cooldown_remaining / dash_cooldown)
 
 func _draw_character() -> void:
-	var facing := _dash_direction.normalized()
-	var side := facing.orthogonal()
-	var step := sin(_anim_time * 10.0) if _moving else sin(_anim_time * 2.0) * 0.18
-	var idle_bob := sin(_anim_time * 2.4) * 1.1 if not _moving else sin(_anim_time * 10.0) * 1.8
-	var origin := facing * idle_bob
-	var cape_sway := sin(_anim_time * 2.8) * 8.0 + sin(_anim_time * 5.1) * 2.5
-	var cape_lift := sin(_anim_time * 1.7) * 3.0
-	var head := origin + facing * 23.0
-	var chest := origin + facing * 7.0
-	var hips := origin - facing * 14.0
-	var left_foot := origin - facing * (34.0 + max(0.0, step) * 4.0) - side * (7.0 + step * 4.0)
-	var right_foot := origin - facing * (34.0 + max(0.0, -step) * 4.0) + side * (7.0 - step * 4.0)
-	var left_hand := origin + facing * 4.0 - side * 20.0
-	var right_hand := origin + facing * 1.0 + side * 17.0
+	var facing: Vector2 = _dash_direction.normalized()
+	var side: Vector2 = facing.orthogonal()
+	var step: float = sin(_anim_time * 10.0) if _moving else sin(_anim_time * 2.0) * 0.18
+	var idle_bob: float = sin(_anim_time * 2.4) * 1.1 if not _moving else sin(_anim_time * 10.0) * 1.8
+	var origin: Vector2 = facing * idle_bob
+	var cape_sway: float = sin(_anim_time * 2.8) * 8.0 + sin(_anim_time * 5.1) * 2.5
+	var cape_lift: float = sin(_anim_time * 1.7) * 3.0
+	var head: Vector2 = origin + facing * 23.0
+	var chest: Vector2 = origin + facing * 7.0
+	var hips: Vector2 = origin - facing * 14.0
+	var left_foot: Vector2 = origin - facing * (34.0 + maxf(0.0, step) * 4.0) - side * (7.0 + step * 4.0)
+	var right_foot: Vector2 = origin - facing * (34.0 + maxf(0.0, -step) * 4.0) + side * (7.0 - step * 4.0)
+	var left_hand: Vector2 = origin + facing * 4.0 - side * 20.0
+	var right_hand: Vector2 = origin + facing * 1.0 + side * 17.0
 
 	var cloak := PackedVector2Array([
 		head - side * 12.0,

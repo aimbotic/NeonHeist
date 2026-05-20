@@ -75,5 +75,5 @@ func _distance_to_segment(point: Vector2, segment_start: Vector2, segment_end: V
 	if length_squared <= 0.001:
 		return point.distance_to(segment_start)
 
-	var t := clamp((point - segment_start).dot(segment) / length_squared, 0.0, 1.0)
+	var t: float = clampf((point - segment_start).dot(segment) / length_squared, 0.0, 1.0)
 	return point.distance_to(segment_start + segment * t)

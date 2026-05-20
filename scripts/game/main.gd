@@ -223,10 +223,10 @@ func _start_next_wave() -> void:
 	director.add_heat(0.1 + current_wave * 0.025)
 
 func _spawn_wave(wave: int) -> void:
-	var total := 4 + wave * 2
-	var hunter_count := int(min(wave / 2, 5))
-	var turret_count := int(min(max(0, wave - 2) / 3, 4))
-	var drone_count := max(1, total - hunter_count - turret_count)
+	var total: int = 4 + wave * 2
+	var hunter_count: int = int(mini(wave / 2, 5))
+	var turret_count: int = int(mini(maxi(0, wave - 2) / 3, 4))
+	var drone_count: int = maxi(1, total - hunter_count - turret_count)
 
 	for i in range(drone_count):
 		_spawn_enemy(DroneScene, i, drone_count + hunter_count + turret_count)
@@ -247,10 +247,10 @@ func _spawn_enemy(enemy_script, index: int, total: int) -> void:
 
 func _get_wave_spawn_position(index: int, total: int) -> Vector2:
 	var arena: Rect2 = vault_data["arena"].grow(-90.0)
-	var angle := TAU * float(index) / max(1.0, float(total)) + randf_range(-0.22, 0.22)
-	var center := arena.get_center()
+	var angle: float = TAU * float(index) / maxf(1.0, float(total)) + randf_range(-0.22, 0.22)
+	var center: Vector2 = arena.get_center()
 	var radius := Vector2(arena.size.x * 0.5, arena.size.y * 0.5)
-	var edge_point := center + Vector2(cos(angle) * radius.x, sin(angle) * radius.y)
+	var edge_point: Vector2 = center + Vector2(cos(angle) * radius.x, sin(angle) * radius.y)
 	return edge_point.clamp(arena.position, arena.end)
 
 func _update_camera(delta: float) -> void:
