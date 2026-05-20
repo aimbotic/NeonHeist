@@ -122,86 +122,73 @@ func _draw_character() -> void:
 	var side := facing.orthogonal()
 	var step := sin(_anim_time * 10.0) if _moving else sin(_anim_time * 2.0) * 0.18
 	var idle_bob := sin(_anim_time * 2.4) * 1.1 if not _moving else sin(_anim_time * 10.0) * 1.8
-	var cloak_sway := sin(_anim_time * 3.0) * 3.0 if not _moving else sin(_anim_time * 10.0) * 6.0
 	var origin := facing * idle_bob
+	var cape_sway := sin(_anim_time * 2.8) * 8.0 + sin(_anim_time * 5.1) * 2.5
+	var cape_lift := sin(_anim_time * 1.7) * 3.0
+	var head := origin + facing * 23.0
+	var chest := origin + facing * 7.0
+	var hips := origin - facing * 14.0
+	var left_foot := origin - facing * (34.0 + max(0.0, step) * 4.0) - side * (7.0 + step * 4.0)
+	var right_foot := origin - facing * (34.0 + max(0.0, -step) * 4.0) + side * (7.0 - step * 4.0)
+	var left_hand := origin + facing * 4.0 - side * 20.0
+	var right_hand := origin + facing * 1.0 + side * 17.0
+
 	var cloak := PackedVector2Array([
-		origin - side * 18.0 + facing * 4.0,
-		origin - side * (34.0 + cloak_sway) - facing * 12.0,
-		origin - side * (30.0 + cloak_sway * 0.6) - facing * 42.0,
-		origin - side * 18.0 - facing * 58.0,
-		origin - side * 4.0 - facing * 35.0,
+		head - side * 12.0,
+		chest - side * 21.0,
+		hips - side * 13.0,
+		hips + side * 8.0,
+		chest + side * 12.0,
+		head + side * 8.0,
 	])
-	var cloak_fringe := PackedVector2Array([
-		origin - side * (30.0 + cloak_sway * 0.6) - facing * 42.0,
-		origin - side * 24.0 - facing * 54.0,
-		origin - side * 18.0 - facing * 58.0,
-		origin - side * 11.0 - facing * 49.0,
-		origin - side * 4.0 - facing * 35.0,
+	var tunic := PackedVector2Array([
+		head - side * 7.0 - facing * 5.0,
+		chest - side * 10.0,
+		hips - side * 6.0,
+		hips + side * 7.0,
+		chest + side * 9.0,
+		head + side * 6.0 - facing * 5.0,
 	])
-	var duster := PackedVector2Array([
-		origin + facing * 24.0,
-		origin + side * 13.0 + facing * 5.0,
-		origin + side * 10.0 - facing * 30.0,
-		origin - side * 10.0 - facing * 30.0,
-		origin - side * 15.0 + facing * 3.0,
+	var red_sash := PackedVector2Array([
+		hips - side * 6.0 + facing * 3.0,
+		hips + side * 9.0 + facing * 1.0,
+		hips + side * 7.0 - facing * 7.0,
+		hips - side * 8.0 - facing * 5.0,
 	])
-	var shirt := PackedVector2Array([
-		origin + facing * 20.0,
-		origin + side * 6.0 + facing * 2.0,
-		origin + side * 5.0 - facing * 20.0,
-		origin - side * 5.0 - facing * 20.0,
-		origin - side * 7.0 + facing * 2.0,
+	var cape := PackedVector2Array([
+		chest - side * 11.0,
+		chest + side * 8.0,
+		hips + side * (16.0 + cape_sway * 0.35) - facing * (10.0 + cape_lift),
+		hips + side * (24.0 + cape_sway) - facing * (39.0 + cape_lift),
+		hips + side * (9.0 + cape_sway * 0.45) - facing * 55.0,
+		hips - side * (8.0 - cape_sway * 0.15) - facing * 35.0,
 	])
-	var hat_brim := PackedVector2Array([
-		origin + facing * 26.0,
-		origin + side * 34.0 + facing * 10.0,
-		origin + side * 40.0 - facing * 3.0,
-		origin + side * 14.0 - facing * 18.0,
-		origin - side * 15.0 - facing * 18.0,
-		origin - side * 40.0 - facing * 3.0,
-		origin - side * 34.0 + facing * 10.0,
-	])
-	var hat_crown := PackedVector2Array([
-		origin + facing * 25.0,
-		origin + side * 11.0 + facing * 15.0,
-		origin + side * 10.0 - facing * 8.0,
-		origin - side * 10.0 - facing * 8.0,
-		origin - side * 12.0 + facing * 15.0,
-	])
-	var hair := PackedVector2Array([
-		origin - side * 12.0 + facing * 8.0,
-		origin - side * 25.0 - facing * 9.0,
-		origin - side * 20.0 - facing * 34.0,
-		origin + side * 3.0 - facing * 24.0,
-		origin + side * 7.0 - facing * 6.0,
+	var cape_torn_edge := PackedVector2Array([
+		cape[3],
+		cape[4] + side * 2.0 - facing * 5.0,
+		cape[5],
+		cape[5] + side * 7.0 + facing * 9.0,
 	])
 
-	draw_circle(origin - facing * 14.0, 24.0, Color(0.0, 0.0, 0.0, 0.32))
-	draw_colored_polygon(cloak, Color(0.09, 0.055, 0.035, 0.98))
-	draw_colored_polygon(cloak_fringe, Color(0.14, 0.075, 0.036, 0.88))
-	draw_polyline(PackedVector2Array([cloak[0], cloak[1], cloak[2], cloak[3], cloak[4]]), Color(0.54, 0.27, 0.11, 0.7), 2.0)
-	draw_colored_polygon(duster, Color(0.095, 0.055, 0.036, 0.98))
-	draw_polyline(PackedVector2Array([duster[0], duster[1], duster[2], duster[3], duster[4], duster[0]]), Color(0.57, 0.31, 0.14, 0.8), 2.5)
-	draw_colored_polygon(shirt, Color(0.035, 0.025, 0.02, 1.0))
-	draw_line(origin + facing * 18.0 - side * 7.0, origin - facing * 17.0 - side * 5.0, Color(0.58, 0.31, 0.14, 0.55), 2.0)
-	draw_line(origin - side * 7.0 - facing * 11.0, origin - side * (16.0 + step * 4.0) - facing * (31.0 + max(0.0, step) * 5.0), Color(0.025, 0.018, 0.015, 1.0), 5.0)
-	draw_line(origin + side * 7.0 - facing * 11.0, origin + side * (16.0 - step * 4.0) - facing * (31.0 + max(0.0, -step) * 5.0), Color(0.025, 0.018, 0.015, 1.0), 5.0)
-	draw_line(origin - side * (8.0 + step * 2.0) - facing * 31.0, origin - side * (18.0 + step * 5.0) - facing * 40.0, Color(0.01, 0.008, 0.008, 1.0), 4.0)
-	draw_line(origin + side * (8.0 - step * 2.0) - facing * 31.0, origin + side * (18.0 - step * 5.0) - facing * 40.0, Color(0.01, 0.008, 0.008, 1.0), 4.0)
-	draw_line(origin - side * 16.0 + facing * 2.0, origin - side * 31.0 - facing * 6.0, Color(0.045, 0.026, 0.018, 1.0), 5.0)
-	draw_line(origin + side * 16.0 + facing * 2.0, origin + side * 30.0 - facing * 7.0, Color(0.045, 0.026, 0.018, 1.0), 5.0)
-	draw_line(origin + side * 11.0 - facing * 4.0, origin + side * 20.0 - facing * 15.0, Color(0.55, 0.29, 0.13, 0.95), 3.0)
-	draw_colored_polygon(hair, Color(0.01, 0.008, 0.008, 1.0))
-	draw_circle(origin + facing * 9.0, 9.5, Color(0.54, 0.36, 0.26, 0.98))
-	draw_line(origin + facing * 7.0 - side * 3.0, origin + facing * 3.0 - side * 7.0, Color(0.26, 0.08, 0.055, 0.9), 2.0)
-	draw_line(origin + facing * 9.0 - side * 11.0, origin + facing * 12.0 + side * 11.0, Color(0.01, 0.007, 0.006, 1.0), 12.0)
-	draw_line(origin + facing * 3.0 - side * 5.0, origin + facing * 0.0 - side * 12.0, Color(0.01, 0.008, 0.008, 1.0), 4.0)
-	draw_colored_polygon(hat_brim, Color(0.025, 0.018, 0.015, 1.0))
-	draw_polyline(PackedVector2Array([hat_brim[0], hat_brim[1], hat_brim[2], hat_brim[3], hat_brim[4], hat_brim[5], hat_brim[6], hat_brim[0]]), Color(0.48, 0.26, 0.11, 0.78), 2.0)
-	draw_colored_polygon(hat_crown, Color(0.038, 0.026, 0.019, 1.0))
-	draw_line(origin + facing * 8.0 - side * 12.0, origin + facing * 11.0 + side * 12.0, Color(0.0, 0.0, 0.0, 0.98), 10.0)
-	draw_line(origin + facing * 13.0 - side * 11.0, origin + facing * 16.0 + side * 11.0, Color(0.58, 0.31, 0.14, 0.5), 1.5)
-	draw_arc(origin, 36.0, facing.angle() - PI * 0.78, facing.angle() + PI * 0.78, 22, Color(0.48, 0.26, 0.11, 0.42), 2.0)
+	draw_circle(origin - facing * 8.0, 20.0, Color(0.0, 0.0, 0.0, 0.35))
+	draw_colored_polygon(cape, Color(0.018, 0.014, 0.012, 0.96))
+	draw_colored_polygon(cape_torn_edge, Color(0.09, 0.052, 0.028, 0.82))
+	draw_polyline(PackedVector2Array([cape[0], cape[1], cape[2], cape[3], cape[4], cape[5]]), Color(0.24, 0.15, 0.09, 0.82), 2.0)
+	draw_colored_polygon(cloak, Color(0.028, 0.023, 0.02, 0.98))
+	draw_polyline(PackedVector2Array([cloak[0], cloak[1], cloak[2], cloak[3], cloak[4], cloak[5], cloak[0]]), Color(0.26, 0.18, 0.12, 0.85), 2.0)
+	draw_line(chest - side * 15.0, left_hand, Color(0.82, 0.8, 0.72, 0.96), 5.0)
+	draw_line(chest + side * 12.0, right_hand, Color(0.82, 0.8, 0.72, 0.92), 5.0)
+	draw_colored_polygon(tunic, Color(0.86, 0.84, 0.76, 0.98))
+	draw_colored_polygon(red_sash, Color(0.58, 0.07, 0.035, 0.96))
+	draw_line(hips - side * 5.0, left_foot, Color(0.82, 0.8, 0.72, 0.95), 6.0)
+	draw_line(hips + side * 5.0, right_foot, Color(0.58, 0.07, 0.035, 0.95), 6.0)
+	draw_line(left_foot - side * 3.0, left_foot + side * 6.0, Color(0.015, 0.012, 0.01, 1.0), 4.0)
+	draw_line(right_foot - side * 4.0, right_foot + side * 6.0, Color(0.015, 0.012, 0.01, 1.0), 4.0)
+	draw_circle(head, 8.0, Color(0.9, 0.88, 0.8, 0.98))
+	draw_arc(head, 10.0, facing.angle() - PI * 0.25, facing.angle() + PI * 1.15, 14, Color(0.012, 0.01, 0.009, 0.98), 5.0)
+	draw_line(head - side * 8.0 + facing * 1.0, head + side * 8.0 + facing * 2.0, Color(0.0, 0.0, 0.0, 0.98), 5.0)
+	draw_line(left_hand, left_hand - facing * 30.0 - side * 8.0, Color(0.72, 0.73, 0.68, 0.94), 3.0)
+	draw_line(left_hand - facing * 30.0 - side * 8.0, left_hand - facing * 40.0 - side * 11.0, Color(0.94, 0.9, 0.74, 0.9), 2.0)
 
 func _draw_blade() -> void:
 	var blade_direction := _get_blade_direction()

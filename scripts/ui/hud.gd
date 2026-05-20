@@ -6,9 +6,10 @@ var _health_bar := ColorRect.new()
 var _health_back := ColorRect.new()
 var _alert_label := Label.new()
 var _timer_label := Label.new()
-var _loot_label := Label.new()
+var _wave_label := Label.new()
 var _program_label := Label.new()
 var _message_label := Label.new()
+var _wave_banner := Label.new()
 var _elapsed := 0.0
 
 func _ready() -> void:
@@ -29,7 +30,7 @@ func _ready() -> void:
 
 	_configure_label(_alert_label, Vector2(28, 56), 18)
 	_configure_label(_timer_label, Vector2(28, 82), 18)
-	_configure_label(_loot_label, Vector2(28, 108), 18)
+	_configure_label(_wave_label, Vector2(28, 108), 18)
 	_configure_label(_program_label, Vector2(28, 142), 15)
 
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -40,7 +41,16 @@ func _ready() -> void:
 	_message_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_message_label)
 
-func update_run(player, director, program_system, loot: int, extraction_open: bool) -> void:
+	_wave_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_wave_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_wave_banner.add_theme_font_size_override("font_size", 52)
+	_wave_banner.add_theme_color_override("font_color", Color(0.86, 0.62, 0.36))
+	_wave_banner.position = Vector2(2000, 260)
+	_wave_banner.size = Vector2(520, 92)
+	_wave_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_wave_banner)
+
+func update_run(player, director, program_system, wave: int, enemies_remaining: int) -> void:
 	_elapsed += get_process_delta_time()
 	var health_fraction: float = clamp(player.health / player.max_health, 0.0, 1.0)
 	_health_bar.size.x = 260.0 * health_fraction
@@ -48,7 +58,7 @@ func update_run(player, director, program_system, loot: int, extraction_open: bo
 
 	_alert_label.text = "ALERT %d  %02d%%" % [director.alert_level, int(director.alert_meter * 100.0)]
 	_timer_label.text = "TIME %02d:%02d" % [int(_elapsed / 60.0), int(_elapsed) % 60]
-	_loot_label.text = "DATA %d/3  EXIT %s" % [loot, "OPEN" if extraction_open else "LOCKED"]
+	_wave_label.text = "WAVE %d  ENEMIES %d" % [wave, enemies_remaining]
 	_program_label.text = _format_programs(program_system)
 
 func show_run_start(seed_value: int) -> void:
@@ -69,6 +79,23 @@ func show_run_complete(credits: int) -> void:
 func show_run_failed() -> void:
 	_message_label.modulate.a = 1.0
 	_message_label.text = "GHOST LOST\nPRESS ANY KEY"
+
+func show_wave_banner(wave: int) -> void:
+	_wave_banner.text = "WAVE %d" % wave
+	_wave_banner.modulate.a = 1.0
+	var viewport_size := get_viewport().get_visible_rect().size
+	_wave_banner.position.x = viewport_size.x + 40.0
+	_wave_banner.position.y = max(180.0, viewport_size.y * 0.28)
+
+	var center_x := (viewport_size.x - _wave_banner.size.x) * 0.5
+	var exit_x := -_wave_banner.size.x - 40.0
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_CUBIC)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.tween_property(_wave_banner, "position:x", center_x, 0.42)
+	tween.tween_interval(1.0)
+	tween.set_ease(Tween.EASE_IN)
+	tween.tween_property(_wave_banner, "position:x", exit_x, 0.42)
 
 func _configure_label(label: Label, position: Vector2, font_size: int) -> void:
 	label.position = position

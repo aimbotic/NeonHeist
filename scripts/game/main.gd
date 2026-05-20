@@ -21,10 +21,11 @@ var hud
 var camera: Camera2D
 var enemy_root := Node2D.new()
 var enemies: Array[Node2D] = []
-var hacked_nodes := {}
 var run_complete := false
-var extraction_open := false
-var loot_collected := 0
+var current_wave := 0
+var wave_in_progress := false
+var wave_break_timer := 0.0
+var enemies_defeated := 0
 
 func _ready() -> void:
 	_configure_input()
@@ -57,8 +58,8 @@ func _physics_process(delta: float) -> void:
 	var heat: float = max(0.0, 1.0 - player.health / player.max_health)
 	director.tick(delta, heat)
 	_update_camera(delta)
-	_update_extraction()
-	hud.update_run(player, director, program_system, loot_collected, extraction_open)
+	_update_wave(delta)
+	hud.update_run(player, director, program_system, current_wave, _living_enemy_count())
 
 func _draw() -> void:
 	if vault_data.is_empty():
@@ -67,28 +68,12 @@ func _draw() -> void:
 	_draw_dark_western_backdrop()
 
 	var arena: Rect2 = vault_data["arena"]
-	draw_rect(arena, Color(0.075, 0.047, 0.032, 0.78), true)
-	draw_rect(arena.grow(-14.0), Color(0.22, 0.12, 0.055, 0.34), false, 3.0)
+	draw_rect(arena, Color(0.38, 0.22, 0.105, 0.96), true)
+	draw_rect(arena.grow(-14.0), Color(0.64, 0.39, 0.17, 0.2), false, 3.0)
 	draw_rect(arena, Color(0.55, 0.29, 0.12, 0.58), false, 6.0)
-	draw_rect(arena.grow(-42.0), Color(0.78, 0.47, 0.2, 0.11), false, 2.0)
+	draw_rect(arena.grow(-42.0), Color(0.86, 0.62, 0.33, 0.12), false, 2.0)
 
-	for i in range(9):
-		var y := lerpf(arena.position.y + 160.0, arena.end.y - 160.0, float(i) / 8.0)
-		draw_line(Vector2(arena.position.x + 90.0, y), Vector2(arena.end.x - 90.0, y + sin(i * 1.8) * 26.0), Color(0.19, 0.1, 0.045, 0.22), 5.0)
-
-	for hazard in vault_data["hazards"]:
-		draw_circle(hazard, 22.0, Color(0.78, 0.2, 0.06, 0.32))
-		draw_arc(hazard, 34.0, 0.0, TAU, 28, Color(0.88, 0.36, 0.1, 0.82), 3.0)
-
-	for node_position in vault_data["hack_nodes"]:
-		var hacked := hacked_nodes.has(node_position)
-		var color := Color(0.86, 0.46, 0.18, 0.95) if not hacked else Color(0.73, 0.68, 0.42, 0.86)
-		draw_circle(node_position, 28.0, Color(color.r, color.g, color.b, 0.18))
-		draw_rect(Rect2(node_position - Vector2(15, 15), Vector2(30, 30)), color, false, 4.0)
-
-	var extraction_color := Color(0.82, 0.62, 0.28, 0.95) if extraction_open else Color(0.78, 0.18, 0.08, 0.8)
-	draw_circle(vault_data["extraction"], 58.0, Color(extraction_color.r, extraction_color.g, extraction_color.b, 0.18))
-	draw_arc(vault_data["extraction"], 72.0, 0.0, TAU, 48, extraction_color, 5.0)
+	_draw_sand_detail(arena)
 
 func _draw_dark_western_backdrop() -> void:
 	var bounds := _get_vault_bounds().grow(520.0)
@@ -123,6 +108,37 @@ func _draw_dark_western_backdrop() -> void:
 		draw_rect(mesa_rect, Color(0.055, 0.03, 0.022, 0.9), true)
 		draw_rect(mesa_rect, Color(0.48, 0.22, 0.09, 0.28), false, 2.0)
 
+func _draw_sand_detail(arena: Rect2) -> void:
+	for i in range(16):
+		var y := lerpf(arena.position.y + 90.0, arena.end.y - 90.0, float(i) / 15.0)
+		var wave := sin(i * 1.8) * 34.0
+		var color := Color(0.76, 0.5, 0.24, 0.16) if i % 2 == 0 else Color(0.2, 0.1, 0.045, 0.18)
+		draw_line(Vector2(arena.position.x + 70.0, y), Vector2(arena.end.x - 70.0, y + wave), color, 7.0)
+
+	for i in range(72):
+		var x := arena.position.x + float((i * 173) % int(arena.size.x - 160.0)) + 80.0
+		var y := arena.position.y + float((i * 97) % int(arena.size.y - 160.0)) + 80.0
+		var radius := 2.0 + float((i * 11) % 5)
+		var tint := Color(0.12, 0.07, 0.035, 0.32) if i % 3 == 0 else Color(0.82, 0.58, 0.3, 0.18)
+		draw_circle(Vector2(x, y), radius, tint)
+
+	for i in range(18):
+		var x := arena.position.x + float((i * 251) % int(arena.size.x - 220.0)) + 110.0
+		var y := arena.position.y + float((i * 149) % int(arena.size.y - 220.0)) + 110.0
+		var length := 30.0 + float((i * 17) % 54)
+		var angle := -0.2 + sin(i * 2.1) * 0.35
+		var start := Vector2(x, y)
+		var end := start + Vector2.RIGHT.rotated(angle) * length
+		draw_line(start, end, Color(0.16, 0.08, 0.035, 0.24), 3.0)
+		draw_line(start + Vector2(0, 5), end + Vector2(0, 5), Color(0.84, 0.58, 0.3, 0.12), 2.0)
+
+	for i in range(10):
+		var x := arena.position.x + float((i * 337) % int(arena.size.x - 260.0)) + 130.0
+		var y := arena.position.y + float((i * 211) % int(arena.size.y - 260.0)) + 130.0
+		var rock := Rect2(Vector2(x, y), Vector2(18.0 + (i % 4) * 7.0, 8.0 + (i % 3) * 5.0))
+		draw_rect(rock, Color(0.13, 0.07, 0.04, 0.42), true)
+		draw_rect(rock, Color(0.54, 0.31, 0.16, 0.28), false, 1.5)
+
 func _get_vault_bounds() -> Rect2:
 	return vault_data["arena"]
 
@@ -138,8 +154,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				player.try_dash()
 			KEY_J:
 				player.try_weapon_attack()
-			KEY_E:
-				_try_hack()
 			KEY_1:
 				_cast_program("emp_blast")
 			KEY_2:
@@ -149,9 +163,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _start_run() -> void:
 	run_complete = false
-	extraction_open = false
-	loot_collected = 0
-	hacked_nodes.clear()
+	current_wave = 0
+	wave_in_progress = false
+	wave_break_timer = 0.0
+	enemies_defeated = 0
 	director.reset()
 	program_system.reset()
 
@@ -182,25 +197,61 @@ func _start_run() -> void:
 	player.add_child(camera)
 	camera.make_current()
 
-	_spawn_enemies()
 	hud.show_run_start(vault_data["seed"])
 	vfx_layer.burst(vault_data["spawn"], Color(0.72, 0.38, 0.16), 36)
+	_start_next_wave()
 	queue_redraw()
 
-func _spawn_enemies() -> void:
-	var spawn_points: Array = vault_data["enemy_spawns"]
-	for i in range(spawn_points.size()):
-		var enemy: Node2D
-		if i % 7 == 0:
-			enemy = TurretScene.new()
-		elif i % 3 == 0:
-			enemy = HunterScene.new()
-		else:
-			enemy = DroneScene.new()
-		enemy.position = spawn_points[i]
-		enemy_root.add_child(enemy)
-		enemy.setup(player, director, vfx_layer)
-		enemies.append(enemy)
+func _update_wave(delta: float) -> void:
+	enemies = enemies.filter(func(enemy: Node2D) -> bool: return is_instance_valid(enemy))
+	if wave_in_progress and enemies.is_empty():
+		wave_in_progress = false
+		wave_break_timer = 1.15
+		program_system.award_random_program()
+		director.add_heat(-0.35)
+
+	if not wave_in_progress and wave_break_timer > 0.0:
+		wave_break_timer = max(0.0, wave_break_timer - delta)
+		if wave_break_timer <= 0.0:
+			_start_next_wave()
+
+func _start_next_wave() -> void:
+	current_wave += 1
+	wave_in_progress = true
+	hud.show_wave_banner(current_wave)
+	_spawn_wave(current_wave)
+	director.add_heat(0.1 + current_wave * 0.025)
+
+func _spawn_wave(wave: int) -> void:
+	var total := 4 + wave * 2
+	var hunter_count := int(min(wave / 2, 5))
+	var turret_count := int(min(max(0, wave - 2) / 3, 4))
+	var drone_count := max(1, total - hunter_count - turret_count)
+
+	for i in range(drone_count):
+		_spawn_enemy(DroneScene, i, drone_count + hunter_count + turret_count)
+	for i in range(hunter_count):
+		_spawn_enemy(HunterScene, drone_count + i, drone_count + hunter_count + turret_count)
+	for i in range(turret_count):
+		_spawn_enemy(TurretScene, drone_count + hunter_count + i, drone_count + hunter_count + turret_count)
+
+func _spawn_enemy(enemy_script, index: int, total: int) -> void:
+	var enemy: Node2D = enemy_script.new()
+	var spawn_position := _get_wave_spawn_position(index, total)
+	enemy.position = spawn_position
+	enemy_root.add_child(enemy)
+	enemy.setup(player, director, vfx_layer)
+	enemy.destroyed.connect(_on_enemy_destroyed)
+	enemy.set_alert_level(int(min(4, current_wave / 2)))
+	enemies.append(enemy)
+
+func _get_wave_spawn_position(index: int, total: int) -> Vector2:
+	var arena: Rect2 = vault_data["arena"].grow(-90.0)
+	var angle := TAU * float(index) / max(1.0, float(total)) + randf_range(-0.22, 0.22)
+	var center := arena.get_center()
+	var radius := Vector2(arena.size.x * 0.5, arena.size.y * 0.5)
+	var edge_point := center + Vector2(cos(angle) * radius.x, sin(angle) * radius.y)
+	return edge_point.clamp(arena.position, arena.end)
 
 func _update_camera(delta: float) -> void:
 	if camera == null:
@@ -209,30 +260,6 @@ func _update_camera(delta: float) -> void:
 	var target_zoom: float = 0.92 - speed_factor * 0.08 - director.alert_level * 0.025
 	camera.zoom = camera.zoom.lerp(Vector2(target_zoom, target_zoom), delta * 3.0)
 	camera.rotation = lerpf(camera.rotation, player.velocity.x * 0.000035, delta * 4.0)
-
-func _try_hack() -> void:
-	var closest := Vector2.ZERO
-	var closest_distance := 99999.0
-	for node_position in vault_data["hack_nodes"]:
-		if hacked_nodes.has(node_position):
-			continue
-		var distance: float = player.global_position.distance_to(node_position)
-		if distance < closest_distance:
-			closest = node_position
-			closest_distance = distance
-
-	if closest_distance <= 96.0:
-		hacked_nodes[closest] = true
-		loot_collected += 1
-		director.add_heat(-0.2)
-		program_system.award_random_program()
-		vfx_layer.shockwave(closest, Color(0.82, 0.48, 0.18))
-		if hacked_nodes.size() >= 3:
-			extraction_open = true
-		queue_redraw()
-	else:
-		director.add_heat(0.22)
-		vfx_layer.burst(player.global_position, Color(0.72, 0.12, 0.06), 18)
 
 func _cast_program(program_id: String) -> void:
 	if not program_system.can_cast(program_id):
@@ -250,24 +277,10 @@ func _cast_program(program_id: String) -> void:
 		_trigger_chain_reaction(player.global_position, result["chain_radius"], result["damage"] * 0.7)
 
 func _trigger_chain_reaction(origin: Vector2, radius: float, damage: float) -> void:
-	for hazard in vault_data["hazards"]:
-		if origin.distance_to(hazard) <= radius:
-			vfx_layer.shockwave(hazard, Color(0.82, 0.3, 0.08))
-			for enemy in enemies:
-				if is_instance_valid(enemy) and enemy.global_position.distance_to(hazard) <= 145.0:
-					enemy.take_damage(damage)
-			director.add_heat(0.08)
-
-func _update_extraction() -> void:
-	if not extraction_open:
-		return
-
-	if player.global_position.distance_to(vault_data["extraction"]) <= 92.0:
-		run_complete = true
-		var credits := loot_collected * 35 + hacked_nodes.size() * 20
-		save_system.add_credits(credits)
-		hud.show_run_complete(credits)
-		vfx_layer.shockwave(vault_data["extraction"], Color(0.82, 0.62, 0.28))
+	for enemy in enemies:
+		if is_instance_valid(enemy) and enemy.global_position.distance_to(origin) <= radius:
+			enemy.take_damage(damage)
+	director.add_heat(0.08)
 
 func _on_player_dash() -> void:
 	director.add_heat(0.03)
@@ -298,8 +311,20 @@ func _on_player_damaged(amount: float) -> void:
 
 func _on_player_down() -> void:
 	run_complete = true
+	save_system.add_credits(enemies_defeated * 5 + max(0, current_wave - 1) * 35)
 	hud.show_run_failed()
 	vfx_layer.shockwave(player.global_position, Color(0.72, 0.08, 0.04))
+
+func _on_enemy_destroyed(enemy) -> void:
+	enemies_defeated += 1
+	enemies = enemies.filter(func(other: Node2D) -> bool: return is_instance_valid(other) and other != enemy)
+
+func _living_enemy_count() -> int:
+	var count := 0
+	for enemy in enemies:
+		if is_instance_valid(enemy):
+			count += 1
+	return count
 
 func _on_alert_changed(level: int, meter: float) -> void:
 	for enemy in enemies:
@@ -307,14 +332,12 @@ func _on_alert_changed(level: int, meter: float) -> void:
 			enemy.set_alert_level(level)
 
 func _on_lockdown_started() -> void:
-	extraction_open = true
 	queue_redraw()
 
 func _configure_input() -> void:
 	var mappings := {
 		"dash": KEY_SPACE,
 		"attack": KEY_J,
-		"hack": KEY_E,
 		"program_1": KEY_1,
 		"program_2": KEY_2,
 		"program_3": KEY_3,
