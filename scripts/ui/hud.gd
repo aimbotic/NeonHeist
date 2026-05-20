@@ -2,6 +2,7 @@ class_name DustHud
 extends CanvasLayer
 
 signal play_requested
+signal ability_loadout_changed(equipped_ids: Array[String])
 
 class SkillIcon extends Control:
 	var skill_id := ""
@@ -23,6 +24,12 @@ class SkillIcon extends Control:
 				_draw_dust_icon()
 			"quickdraw":
 				_draw_quickdraw_icon()
+			"duelist_lunge":
+				_draw_duelist_lunge_icon()
+			"fan_hammer":
+				_draw_fan_hammer_icon()
+			"ghost_step":
+				_draw_ghost_step_icon()
 
 		draw_string(ThemeDB.fallback_font, Vector2(6.0, 16.0), key_label, HORIZONTAL_ALIGNMENT_LEFT, 16.0, 14, Color(1.0, 0.86, 0.5, 0.85))
 		if cooldown_fraction > 0.0:
@@ -69,12 +76,59 @@ class SkillIcon extends Control:
 		draw_line(barrel - Vector2(16.0, -3.0), barrel + Vector2(9.0, -4.0), Color(0.82, 0.58, 0.28), 4.0)
 		draw_arc(grip + Vector2(12.0, 0.0), 10.0, -0.2, PI * 1.25, 14, Color(0.78, 0.45, 0.2), 3.0)
 
+	func _draw_duelist_lunge_icon() -> void:
+		var center := size * 0.5
+		draw_line(center + Vector2(-20.0, 16.0), center + Vector2(20.0, -16.0), Color(0.96, 0.16, 0.08), 5.0)
+		draw_line(center + Vector2(-8.0, 18.0), center + Vector2(24.0, -14.0), Color(1.0, 0.84, 0.46), 2.0)
+		draw_arc(center, 22.0, -0.9, 0.65, 22, Color(0.95, 0.1, 0.04, 0.78), 4.0)
+
+	func _draw_fan_hammer_icon() -> void:
+		var base := Vector2(23.0, 46.0)
+		for i in range(4):
+			var angle := -0.8 + float(i) * 0.34
+			draw_line(base, base + Vector2.RIGHT.rotated(angle) * 36.0, Color(1.0, 0.62, 0.18), 3.0)
+		draw_arc(base + Vector2(8.0, -6.0), 12.0, -0.2, PI * 1.2, 18, Color(0.78, 0.42, 0.16), 3.0)
+
+	func _draw_ghost_step_icon() -> void:
+		var center := size * 0.5
+		draw_circle(center + Vector2(-8.0, 8.0), 11.0, Color(0.86, 0.76, 0.58, 0.55))
+		draw_circle(center + Vector2(8.0, -4.0), 13.0, Color(0.94, 0.86, 0.68, 0.35))
+		draw_polyline(PackedVector2Array([Vector2(14, 44), Vector2(28, 30), Vector2(42, 42), Vector2(52, 24)]), Color(1.0, 0.84, 0.52, 0.82), 3.0)
+
 var _root := Control.new()
 var _menu_root := Control.new()
 var _menu_title := Label.new()
 var _menu_panel := VBoxContainer.new()
 var _menu_detail := Label.new()
 var _menu_content := HBoxContainer.new()
+var _abilities_panel := VBoxContainer.new()
+var _quests_panel := VBoxContainer.new()
+var _abilities_icons: Array[SkillIcon] = []
+var _ability_rows: Dictionary = {}
+var _ability_buttons: Dictionary = {}
+var _quest_labels: Dictionary = {}
+var _ability_ids: Array[String] = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw", "duelist_lunge", "fan_hammer", "ghost_step"]
+var _ability_names := {
+	"deadeye": "Deadeye",
+	"ricochet_shot": "Ricochet Shot",
+	"dust_veil": "Dust Veil",
+	"quickdraw": "Quickdraw",
+	"duelist_lunge": "Duelist Lunge",
+	"fan_hammer": "Fan Hammer",
+	"ghost_step": "Ghost Step",
+}
+var _ability_descriptions := {
+	"deadeye": "Long-range crosshair shot for picking off riflemen.",
+	"ricochet_shot": "Bouncing bullet that punishes packed enemies.",
+	"dust_veil": "Wind and sand burst that buys breathing room.",
+	"quickdraw": "Fast revolver skillshot for a clean opening strike.",
+	"duelist_lunge": "Boss quickdraw dash stolen from defeated duelists.",
+	"fan_hammer": "Rapid revolver fan-fire earned from impossible wave work.",
+	"ghost_step": "A dust-cloak sidestep for surviving ugly odds.",
+}
+var _unlocked_abilities: Array[String] = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
+var _equipped_abilities: Array[String] = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
+var _quest_data: Array[Dictionary] = []
 var _health_bar := ColorRect.new()
 var _health_back := ColorRect.new()
 var _alert_label := Label.new()
@@ -117,10 +171,14 @@ func _ready() -> void:
 	_create_skill_icons()
 
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_message_label.add_theme_font_size_override("font_size", 34)
 	_message_label.add_theme_color_override("font_color", Color(0.86, 0.62, 0.36))
-	_message_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_message_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_message_label.offset_left = 0.0
+	_message_label.offset_top = 22.0
+	_message_label.offset_right = 0.0
+	_message_label.offset_bottom = 120.0
 	_message_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_message_label)
 
@@ -233,6 +291,17 @@ func show_run_complete(credits: int) -> void:
 	_message_label.modulate.a = 1.0
 	_message_label.text = "EXTRACTED\n+%d CREDITS\nPRESS ANY KEY" % credits
 
+func show_unlock(text: String) -> void:
+	_message_label.modulate.a = 1.0
+	_message_label.text = text
+	var tween := create_tween()
+	tween.tween_interval(1.2)
+	tween.tween_property(_message_label, "modulate:a", 0.0, 0.35)
+	tween.tween_callback(func() -> void:
+		_message_label.text = ""
+		_message_label.modulate.a = 1.0
+	)
+
 func show_run_failed() -> void:
 	_message_label.text = ""
 	_death_screen.color.a = 0.0
@@ -252,10 +321,19 @@ func show_main_menu() -> void:
 	_menu_root.move_to_front()
 	_set_gameplay_hud_visible(false)
 	_layout_menu()
-	_menu_detail.text = "Choose your loadout, then enter the courtyard."
+	_show_menu_detail("Choose your loadout, then enter the courtyard.")
 	_death_screen.color.a = 0.0
 	_death_label.add_theme_color_override("font_color", Color(0.94, 0.82, 0.64, 0.0))
 	_message_label.text = ""
+
+func set_ability_loadout_data(unlocked_ids: Array[String], equipped_ids: Array[String]) -> void:
+	_unlocked_abilities = unlocked_ids.duplicate()
+	_equipped_abilities = equipped_ids.duplicate()
+	_refresh_ability_buttons()
+
+func set_quest_data(quests: Array[Dictionary]) -> void:
+	_quest_data = quests.duplicate(true)
+	_refresh_quest_panel()
 
 func hide_main_menu() -> void:
 	_menu_root.visible = false
@@ -353,16 +431,22 @@ func _create_menu() -> void:
 		play_requested.emit()
 	)
 	_add_menu_button("SELECT BLADE", func() -> void:
-		_menu_detail.text = "Blade: Saber\nFast quickdraw, wide slash arc, last-second parry."
+		_show_menu_detail("Blade: Saber\nBoss reward: Black Sash Saber from defeated duelists.")
 	)
 	_add_menu_button("SELECT GUN", func() -> void:
-		_menu_detail.text = "Gun: Revolver\nQuickdraw skillshot, Deadeye long shot, Ricochet round."
+		_show_menu_detail("Gun: Revolver\nQuickdraw skillshot, Deadeye long shot, Ricochet round.")
+	)
+	_add_menu_button("ABILITIES", func() -> void:
+		_show_abilities_screen()
+	)
+	_add_menu_button("QUESTS", func() -> void:
+		_show_quests_screen()
 	)
 	_add_menu_button("SETTINGS", func() -> void:
-		_menu_detail.text = "Settings\nWASD moves, J or mouse slashes, 1-4 uses skills."
+		_show_menu_detail("Settings\nWASD moves, J or mouse slashes, 1-4 uses skills.")
 	)
 
-	_menu_detail.custom_minimum_size = Vector2(400, 244)
+	_menu_detail.custom_minimum_size = Vector2(400, 308)
 	_menu_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_menu_detail.add_theme_font_size_override("font_size", 24)
 	_menu_detail.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -370,6 +454,8 @@ func _create_menu() -> void:
 	_menu_detail.text = "Choose your loadout, then enter the courtyard."
 	_menu_detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_menu_content.add_child(_menu_detail)
+	_create_abilities_panel()
+	_create_quests_panel()
 
 func _add_menu_button(text: String, callback: Callable) -> void:
 	var button := Button.new()
@@ -381,18 +467,167 @@ func _add_menu_button(text: String, callback: Callable) -> void:
 	button.pressed.connect(callback)
 	_menu_panel.add_child(button)
 
+func _create_abilities_panel() -> void:
+	_abilities_panel.visible = false
+	_abilities_panel.custom_minimum_size = Vector2(440, 308)
+	_abilities_panel.add_theme_constant_override("separation", 12)
+	_menu_content.add_child(_abilities_panel)
+
+	var title := Label.new()
+	title.text = "ABILITIES"
+	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_color_override("font_color", Color(1.0, 0.78, 0.36))
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_abilities_panel.add_child(title)
+
+	for ability_id in _ability_ids:
+		var button := Button.new()
+		button.flat = true
+		button.custom_minimum_size = Vector2(420, 58)
+		button.pressed.connect(func() -> void:
+			_toggle_ability(ability_id)
+		)
+		_ability_buttons[ability_id] = button
+		_abilities_panel.add_child(button)
+
+		var row := HBoxContainer.new()
+		row.custom_minimum_size = Vector2(420, 58)
+		row.add_theme_constant_override("separation", 14)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(row)
+
+		var icon := SkillIcon.new()
+		icon.custom_minimum_size = Vector2(54, 54)
+		icon.size = Vector2(54, 54)
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.set_state(ability_id, "", 0.0)
+		_abilities_icons.append(icon)
+		row.add_child(icon)
+
+		var copy := Label.new()
+		copy.text = ""
+		copy.custom_minimum_size = Vector2(330, 54)
+		copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		copy.add_theme_font_size_override("font_size", 16)
+		copy.add_theme_color_override("font_color", Color(0.98, 0.9, 0.76))
+		copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(copy)
+		_ability_rows[ability_id] = {"icon": icon, "label": copy}
+	_refresh_ability_buttons()
+
+func _show_menu_detail(text: String) -> void:
+	_abilities_panel.visible = false
+	_quests_panel.visible = false
+	_menu_detail.visible = true
+	_menu_detail.text = text
+
+func _show_abilities_screen() -> void:
+	_menu_detail.visible = false
+	_quests_panel.visible = false
+	_abilities_panel.visible = true
+	_refresh_ability_buttons()
+
+func _toggle_ability(ability_id: String) -> void:
+	if not _unlocked_abilities.has(ability_id):
+		return
+	if _equipped_abilities.has(ability_id):
+		if _equipped_abilities.size() <= 1:
+			return
+		_equipped_abilities.erase(ability_id)
+	else:
+		if _equipped_abilities.size() >= 4:
+			_equipped_abilities.pop_front()
+		_equipped_abilities.append(ability_id)
+	_refresh_ability_buttons()
+	ability_loadout_changed.emit(_equipped_abilities.duplicate())
+
+func _refresh_ability_buttons() -> void:
+	for ability_id in _ability_ids:
+		if not _ability_rows.has(ability_id):
+			continue
+		var row: Dictionary = _ability_rows[ability_id]
+		var icon: SkillIcon = row["icon"]
+		var label: Label = row["label"]
+		var button: Button = _ability_buttons[ability_id]
+		var unlocked := _unlocked_abilities.has(ability_id)
+		var equipped_index := _equipped_abilities.find(ability_id)
+		var key_label := str(equipped_index + 1) if equipped_index >= 0 else ""
+		var prefix := "[%s] " % key_label if equipped_index >= 0 else ""
+		var lock_text := "" if unlocked else "LOCKED - Complete quests or defeat bosses"
+		label.text = "%s%s\n%s%s" % [
+			prefix,
+			_ability_names[ability_id],
+			_ability_descriptions[ability_id],
+			"\n" + lock_text if not unlocked else "",
+		]
+		label.modulate = Color(1.0, 1.0, 1.0, 1.0) if unlocked else Color(0.55, 0.48, 0.42, 0.82)
+		icon.modulate = Color(1.0, 1.0, 1.0, 1.0) if unlocked else Color(0.4, 0.36, 0.32, 0.72)
+		icon.set_state(ability_id, key_label, 0.0)
+		button.disabled = not unlocked
+
+func _create_quests_panel() -> void:
+	_quests_panel.visible = false
+	_quests_panel.custom_minimum_size = Vector2(440, 308)
+	_quests_panel.add_theme_constant_override("separation", 10)
+	_menu_content.add_child(_quests_panel)
+
+	var title := Label.new()
+	title.text = "QUESTS"
+	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_color_override("font_color", Color(1.0, 0.78, 0.36))
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_quests_panel.add_child(title)
+
+	for i in range(4):
+		var label := Label.new()
+		label.custom_minimum_size = Vector2(430, 58)
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.add_theme_font_size_override("font_size", 15)
+		label.add_theme_color_override("font_color", Color(0.98, 0.9, 0.76))
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_quest_labels[i] = label
+		_quests_panel.add_child(label)
+	_refresh_quest_panel()
+
+func _show_quests_screen() -> void:
+	_menu_detail.visible = false
+	_abilities_panel.visible = false
+	_quests_panel.visible = true
+	_refresh_quest_panel()
+
+func _refresh_quest_panel() -> void:
+	for i in range(_quest_labels.size()):
+		var label: Label = _quest_labels[i]
+		if i >= _quest_data.size():
+			label.text = ""
+			continue
+		var quest := _quest_data[i]
+		var target := int(quest.get("target", 1))
+		var progress := int(quest.get("progress", 0))
+		var complete := bool(quest.get("complete", false))
+		var status := "COMPLETE" if complete else "%d/%d" % [progress, target]
+		label.text = "%s  %s\n%s\nReward: %s" % [
+			quest.get("name", "Quest"),
+			status,
+			quest.get("description", ""),
+			quest.get("reward", ""),
+		]
+		label.modulate = Color(1.0, 0.86, 0.54, 1.0) if complete else Color(1.0, 1.0, 1.0, 1.0)
+
 func _layout_menu() -> void:
 	var viewport_size := get_viewport().get_visible_rect().size
 	var title_width := minf(viewport_size.x - 80.0, 900.0)
 	_menu_title.position = Vector2((viewport_size.x - title_width) * 0.5, 58.0)
 	_menu_title.size = Vector2(title_width, 88.0)
 
-	var content_width := minf(viewport_size.x - 96.0, 720.0)
-	var content_height := 244.0
+	var content_width := minf(viewport_size.x - 96.0, 800.0)
+	var content_height := 384.0
 	_menu_content.position = Vector2((viewport_size.x - content_width) * 0.5, maxf(190.0, viewport_size.y * 0.34))
 	_menu_content.size = Vector2(content_width, content_height)
 	_menu_panel.custom_minimum_size = Vector2(minf(270.0, content_width * 0.42), content_height)
 	_menu_detail.custom_minimum_size = Vector2(maxf(280.0, content_width - _menu_panel.custom_minimum_size.x - 48.0), content_height)
+	_abilities_panel.custom_minimum_size = _menu_detail.custom_minimum_size
+	_quests_panel.custom_minimum_size = _menu_detail.custom_minimum_size
 
 func _set_gameplay_hud_visible(visible_state: bool) -> void:
 	_health_back.visible = visible_state
@@ -415,13 +650,14 @@ func _create_skill_icons() -> void:
 		_root.add_child(icon)
 
 func _update_skill_icons(program_system) -> void:
-	var summary: Dictionary = {}
-	for skill in program_system.get_equipped_summary():
-		summary[skill["id"]] = skill
-
-	for icon in _skill_icons:
-		var skill: Dictionary = summary.get(icon.skill_id, {})
+	var summary: Array[Dictionary] = program_system.get_equipped_summary()
+	for i in range(_skill_icons.size()):
+		var icon := _skill_icons[i]
+		if i >= summary.size():
+			icon.set_state("", "", 0.0)
+			continue
+		var skill: Dictionary = summary[i]
 		var max_cooldown: float = skill.get("max_cooldown", 1.0)
 		var cooldown: float = skill.get("cooldown", 0.0)
 		var fraction := 0.0 if max_cooldown <= 0.0 else cooldown / max_cooldown
-		icon.set_state(icon.skill_id, icon.key_label, fraction)
+		icon.set_state(skill["id"], str(i + 1), fraction)

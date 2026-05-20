@@ -109,6 +109,12 @@ func try_dash() -> void:
 	invulnerable = true
 	dash_used.emit()
 
+func force_lunge() -> void:
+	_dash_time = dash_duration
+	_dash_cooldown_remaining = minf(_dash_cooldown_remaining, dash_cooldown * 0.35)
+	invulnerable = true
+	dash_used.emit()
+
 func try_weapon_attack() -> void:
 	if _weapon_cooldown_remaining > 0.0:
 		return
@@ -142,6 +148,31 @@ func take_damage(amount: float) -> void:
 func apply_dust_veil(duration: float) -> void:
 	_veil_remaining = max(_veil_remaining, duration)
 	invulnerable = true
+	queue_redraw()
+
+func apply_weapon_profile(profile_id: String) -> void:
+	match profile_id:
+		"black_sash_saber":
+			weapon_range = 108.0
+			weapon_arc = 2.55
+			weapon_damage = 58.0
+			weapon_active_time = 0.08
+			weapon_cooldown = 0.22
+			weapon_parry_time = 0.1
+		"grave_saber":
+			weapon_range = 118.0
+			weapon_arc = 2.7
+			weapon_damage = 68.0
+			weapon_active_time = 0.08
+			weapon_cooldown = 0.24
+			weapon_parry_time = 0.11
+		_:
+			weapon_range = 92.0
+			weapon_arc = 2.35
+			weapon_damage = 50.0
+			weapon_active_time = 0.09
+			weapon_cooldown = 0.25
+			weapon_parry_time = 0.08
 	queue_redraw()
 
 func get_aim_direction() -> Vector2:

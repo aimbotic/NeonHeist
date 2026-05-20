@@ -6,9 +6,13 @@ var available_programs := {
 	"ricochet_shot": {"name": "Ricochet Shot", "cooldown": 4.5},
 	"dust_veil": {"name": "Dust Veil", "cooldown": 8.0},
 	"quickdraw": {"name": "Quickdraw", "cooldown": 5.5},
+	"duelist_lunge": {"name": "Duelist Lunge", "cooldown": 6.0},
+	"fan_hammer": {"name": "Fan Hammer", "cooldown": 6.5},
+	"ghost_step": {"name": "Ghost Step", "cooldown": 9.0},
 }
 
 var unlocked := {}
+var equipped: Array[String] = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
 var cooldowns := {}
 var _rng := RandomNumberGenerator.new()
 
@@ -20,16 +24,10 @@ func _physics_process(delta: float) -> void:
 		cooldowns[program_id] = max(0.0, cooldowns[program_id] - delta)
 
 func reset() -> void:
-	unlocked = {
-		"deadeye": true,
-		"ricochet_shot": true,
-		"dust_veil": true,
-		"quickdraw": true,
-	}
 	cooldowns.clear()
 
 func can_cast(program_id: String) -> bool:
-	return unlocked.has(program_id) and cooldowns.get(program_id, 0.0) <= 0.0
+	return equipped.has(program_id) and unlocked.has(program_id) and cooldowns.get(program_id, 0.0) <= 0.0
 
 func cast(program_id: String, origin: Vector2, direction: Vector2, enemies: Array[Node2D]) -> Dictionary:
 	var data: Dictionary = available_programs.get(program_id, {})
@@ -45,25 +43,78 @@ func cast(program_id: String, origin: Vector2, direction: Vector2, enemies: Arra
 			return _area_program(origin, enemies, 210.0, 8.0, 0.06, Color(0.78, 0.58, 0.34), 0.0, "veil", 1.25)
 		"quickdraw":
 			return _skillshot_program(origin, aim, enemies, 420.0, 34.0, 60.0, 0.18, Color(1.0, 0.86, 0.46), "quickdraw")
+		"duelist_lunge":
+			return _skillshot_program(origin, aim, enemies, 500.0, 38.0, 72.0, 0.2, Color(0.95, 0.12, 0.04), "duelist_lunge")
+		"fan_hammer":
+			return _area_program(origin, enemies, 290.0, 52.0, 0.24, Color(1.0, 0.42, 0.12), 0.0, "fan_hammer")
+		"ghost_step":
+			return _area_program(origin, enemies, 230.0, 18.0, 0.08, Color(0.86, 0.76, 0.58), 0.0, "veil", 1.85)
 		_:
 			return _area_program(origin, enemies, 180.0, 24.0, 0.14, Color(1.0, 0.48, 0.08), 0.0, "")
 
-func award_random_program() -> String:
-	var locked: Array[String] = []
-	for program_id in available_programs.keys():
+func unlock_starter_loadout() -> void:
+	for program_id in ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]:
+		unlocked[program_id] = true
+	equipped = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
+
+func load_progress(unlocked_ids: Array, equipped_ids: Array) -> void:
+	unlocked.clear()
+	for program_id in unlocked_ids:
+		if available_programs.has(str(program_id)):
+			unlocked[str(program_id)] = true
+	set_equipped(_to_string_array(equipped_ids))
+	if equipped.is_empty():
+		equipped = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
+
+func award_boss_reward() -> String:
+	var boss_rewards := ["duelist_lunge"]
+	for program_id in boss_rewards:
 		if not unlocked.has(program_id):
-			locked.append(program_id)
+			unlocked[program_id] = true
+			return program_id
+	return ""
 
-	if locked.is_empty():
+func unlock_program(program_id: String) -> bool:
+	if not available_programs.has(program_id) or unlocked.has(program_id):
+		return false
+	unlocked[program_id] = true
+	return true
+
+func set_equipped(new_equipped: Array[String]) -> void:
+	var next: Array[String] = []
+	for program_id in new_equipped:
+		if unlocked.has(program_id) and available_programs.has(program_id) and not next.has(program_id):
+			next.append(program_id)
+		if next.size() >= 4:
+			break
+	equipped = next
+
+func get_equipped_id(slot: int) -> String:
+	if slot < 0 or slot >= equipped.size():
 		return ""
+	return equipped[slot]
 
-	var pick := locked[_rng.randi_range(0, locked.size() - 1)]
-	unlocked[pick] = true
-	return pick
+func get_program_name(program_id: String) -> String:
+	return available_programs.get(program_id, {}).get("name", "")
+
+func get_unlocked_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for program_id in available_programs.keys():
+		if unlocked.has(program_id):
+			ids.append(program_id)
+	return ids
+
+func _to_string_array(values: Array) -> Array[String]:
+	var result: Array[String] = []
+	for value in values:
+		result.append(str(value))
+	return result
 
 func get_equipped_summary() -> Array[Dictionary]:
 	var summary: Array[Dictionary] = []
-	for program_id in unlocked.keys():
+	for program_id in equipped:
+		if not unlocked.has(program_id):
+			continue
 		var data: Dictionary = available_programs[program_id]
 		summary.append({
 			"id": program_id,

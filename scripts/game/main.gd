@@ -13,6 +13,39 @@ const VfxLayerScene := preload("res://scripts/systems/vfx_layer.gd")
 const HudScene := preload("res://scripts/ui/hud.gd")
 const VaultGeneratorScene := preload("res://scripts/game/vault_generator.gd")
 
+const QUEST_DEFINITIONS := [
+	{
+		"id": "blood_noon",
+		"name": "BLOOD NOON",
+		"description": "Reach wave 6 in a single run.",
+		"type": "wave",
+		"target": 6,
+		"reward_type": "ability",
+		"reward_id": "fan_hammer",
+		"reward": "Fan Hammer ability",
+	},
+	{
+		"id": "three_black_sashes",
+		"name": "THREE BLACK SASHES",
+		"description": "Defeat 3 duelist bosses across runs.",
+		"type": "boss",
+		"target": 3,
+		"reward_type": "ability",
+		"reward_id": "ghost_step",
+		"reward": "Ghost Step ability",
+	},
+	{
+		"id": "graveyard_shift",
+		"name": "GRAVEYARD SHIFT",
+		"description": "Kill 100 enemies across runs.",
+		"type": "kill",
+		"target": 100,
+		"reward_type": "blade",
+		"reward_id": "grave_saber",
+		"reward": "Grave Saber weapon",
+	},
+]
+
 var vault_data: Dictionary
 var player
 var director
@@ -28,7 +61,10 @@ var current_wave := 0
 var wave_in_progress := false
 var wave_break_timer := 0.0
 var enemies_defeated := 0
+var duelists_defeated := 0
 var menu_open := true
+var unlocked_blades: Array[String] = ["saber"]
+var equipped_blade := "saber"
 
 func _ready() -> void:
 	_configure_input()
@@ -44,6 +80,10 @@ func _ready() -> void:
 
 	program_system = ProgramSystemScene.new()
 	add_child(program_system)
+	program_system.unlock_starter_loadout()
+	program_system.load_progress(save_system.data["unlocked_abilities"], save_system.data["equipped_abilities"])
+	unlocked_blades = _to_string_array(save_system.data["unlocked_blades"])
+	equipped_blade = str(save_system.data["equipped_blade"])
 
 	vfx_layer = VfxLayerScene.new()
 	add_child(vfx_layer)
@@ -51,6 +91,9 @@ func _ready() -> void:
 	hud = HudScene.new()
 	add_child(hud)
 	hud.play_requested.connect(_on_menu_play_requested)
+	hud.ability_loadout_changed.connect(_on_ability_loadout_changed)
+	hud.set_ability_loadout_data(program_system.get_unlocked_ids(), program_system.equipped)
+	_refresh_quest_screen()
 
 	add_child(enemy_root)
 	hud.show_main_menu()
@@ -293,13 +336,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_J:
 				player.try_weapon_attack()
 			KEY_1:
-				_cast_program("deadeye")
+				_cast_equipped_program(0)
 			KEY_2:
-				_cast_program("ricochet_shot")
+				_cast_equipped_program(1)
 			KEY_3:
-				_cast_program("dust_veil")
+				_cast_equipped_program(2)
 			KEY_4:
-				_cast_program("quickdraw")
+				_cast_equipped_program(3)
 
 func _clear_run_entities() -> void:
 	for child in enemy_root.get_children():
@@ -319,6 +362,7 @@ func _start_run() -> void:
 	wave_in_progress = false
 	wave_break_timer = 0.0
 	enemies_defeated = 0
+	duelists_defeated = 0
 	director.reset()
 	program_system.reset()
 
@@ -337,6 +381,7 @@ func _start_run() -> void:
 	add_child(player)
 	player.position = vault_data["spawn"]
 	player.set_arena_bounds(vault_data["arena"])
+	player.apply_weapon_profile(equipped_blade)
 	player.dash_used.connect(_on_player_dash)
 	player.weapon_slashed.connect(_on_player_weapon_slashed)
 	player.player_damaged.connect(_on_player_damaged)
@@ -371,14 +416,16 @@ func _start_next_wave() -> void:
 	current_wave += 1
 	wave_in_progress = true
 	hud.show_wave_banner(current_wave)
+	_record_wave_progress(current_wave)
 	_spawn_wave(current_wave)
 	director.add_heat(0.1 + current_wave * 0.025)
 
 func _spawn_wave(wave: int) -> void:
 	var total: int = 4 + wave * 2
-	var duelist_count: int = 1 if wave % 5 == 0 else 0
-	var brute_count: int = int(mini(maxi(0, wave - 2) / 2, 5))
-	var rifleman_count: int = int(mini(maxi(1, wave) / 2, 6))
+	var duelist_count: int = 1 if wave % 3 == 0 else 0
+	var post_boss_pressure: int = maxi(0, wave - 3) + duelists_defeated * 2
+	var brute_count: int = int(mini(maxi(0, wave - 2 + post_boss_pressure) / 2, 7))
+	var rifleman_count: int = int(mini(maxi(1, wave + post_boss_pressure) / 2, 8))
 	var knife_count: int = maxi(1, total - brute_count - rifleman_count - duelist_count)
 	var spawn_total: int = knife_count + rifleman_count + brute_count + duelist_count
 	var index := 0
@@ -406,7 +453,9 @@ func _spawn_enemy(enemy_script, index: int, total: int) -> void:
 	enemy_root.add_child(enemy)
 	enemy.setup(player, director, vfx_layer)
 	enemy.destroyed.connect(_on_enemy_destroyed)
-	enemy.set_alert_level(int(min(4, current_wave / 2)))
+	enemy.set_alert_level(int(min(4, current_wave / 2 + duelists_defeated)))
+	if enemy_script == DuelistScene:
+		enemy.set_meta("boss", true)
 	enemies.append(enemy)
 
 func _get_wave_spawn_position(index: int, total: int) -> Vector2:
@@ -437,6 +486,9 @@ func _cast_program(program_id: String) -> void:
 	if result.get("effect", "") == "veil":
 		player.apply_dust_veil(result.get("veil_duration", 1.0))
 	if result.get("effect", "") == "quickdraw":
+		player.force_quickdraw()
+	if result.get("effect", "") == "duelist_lunge":
+		player.force_lunge()
 		player.force_quickdraw()
 
 	var hit_count := 0
@@ -505,7 +557,94 @@ func _on_player_down() -> void:
 
 func _on_enemy_destroyed(enemy) -> void:
 	enemies_defeated += 1
+	_record_quest_progress("kill", 1)
+	if enemy.has_meta("boss"):
+		duelists_defeated += 1
+		_record_quest_progress("boss", 1)
+		var reward: String = program_system.award_boss_reward()
+		var blade_unlocked := false
+		if not unlocked_blades.has("black_sash_saber"):
+			unlocked_blades.append("black_sash_saber")
+			equipped_blade = "black_sash_saber"
+			save_system.unlock_blade("black_sash_saber")
+			save_system.set_equipped_blade(equipped_blade)
+			blade_unlocked = true
+			if player != null:
+				player.apply_weapon_profile(equipped_blade)
+		if reward != "":
+			save_system.unlock_ability(reward)
+			hud.set_ability_loadout_data(program_system.get_unlocked_ids(), program_system.equipped)
+		if reward != "" and blade_unlocked:
+			hud.show_unlock("BLACK SASH SABER + %s UNLOCKED" % program_system.get_program_name(reward).to_upper())
+		elif reward != "":
+			hud.show_unlock("%s UNLOCKED" % program_system.get_program_name(reward).to_upper())
+		elif blade_unlocked:
+			hud.show_unlock("BLACK SASH SABER UNLOCKED")
 	enemies = enemies.filter(func(other: Node2D) -> bool: return is_instance_valid(other) and other != enemy)
+
+func _cast_equipped_program(slot: int) -> void:
+	var program_id: String = program_system.get_equipped_id(slot)
+	if program_id == "":
+		return
+	_cast_program(program_id)
+
+func _on_ability_loadout_changed(equipped_ids: Array[String]) -> void:
+	program_system.set_equipped(equipped_ids)
+	save_system.set_equipped_abilities(program_system.equipped)
+	hud.set_ability_loadout_data(program_system.get_unlocked_ids(), program_system.equipped)
+
+func _record_wave_progress(wave: int) -> void:
+	for quest in QUEST_DEFINITIONS:
+		if quest["type"] == "wave":
+			var progress: int = save_system.set_quest_progress(quest["id"], wave, quest["target"])
+			_try_complete_quest(quest, progress)
+	_refresh_quest_screen()
+
+func _record_quest_progress(type: String, amount: int) -> void:
+	for quest in QUEST_DEFINITIONS:
+		if quest["type"] != type:
+			continue
+		var progress: int = save_system.add_quest_progress(quest["id"], amount, quest["target"])
+		_try_complete_quest(quest, progress)
+	_refresh_quest_screen()
+
+func _try_complete_quest(quest: Dictionary, progress: int) -> void:
+	var completed: Array = save_system.data["quest_completed"]
+	if completed.has(quest["id"]) or progress < int(quest["target"]):
+		return
+	save_system.complete_quest(quest["id"])
+	var reward_id: String = quest["reward_id"]
+	var reward_name: String = quest["reward"]
+	if quest["reward_type"] == "ability":
+		if program_system.unlock_program(reward_id):
+			save_system.unlock_ability(reward_id)
+			hud.set_ability_loadout_data(program_system.get_unlocked_ids(), program_system.equipped)
+	elif quest["reward_type"] == "blade":
+		if not unlocked_blades.has(reward_id):
+			unlocked_blades.append(reward_id)
+			equipped_blade = reward_id
+			save_system.unlock_blade(reward_id)
+			save_system.set_equipped_blade(equipped_blade)
+			if player != null:
+				player.apply_weapon_profile(equipped_blade)
+	hud.show_unlock("%s COMPLETE - %s UNLOCKED" % [str(quest["name"]), reward_name.to_upper()])
+
+func _refresh_quest_screen() -> void:
+	var quests: Array[Dictionary] = []
+	var progress_data: Dictionary = save_system.data.get("quest_progress", {})
+	var completed: Array = save_system.data.get("quest_completed", [])
+	for quest in QUEST_DEFINITIONS:
+		var entry: Dictionary = quest.duplicate()
+		entry["progress"] = int(progress_data.get(quest["id"], 0))
+		entry["complete"] = completed.has(quest["id"])
+		quests.append(entry)
+	hud.set_quest_data(quests)
+
+func _to_string_array(values: Array) -> Array[String]:
+	var result: Array[String] = []
+	for value in values:
+		result.append(str(value))
+	return result
 
 func _living_enemy_count() -> int:
 	var count := 0
