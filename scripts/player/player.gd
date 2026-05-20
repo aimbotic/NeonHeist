@@ -11,13 +11,14 @@ var acceleration := 2600.0
 var dash_speed := 1180.0
 var dash_duration := 0.13
 var dash_cooldown := 0.9
-var weapon_range := 128.0
+var weapon_range := 92.0
 var weapon_arc := 2.35
 var weapon_damage := 50.0
 var weapon_windup_time := 0.0
 var weapon_active_time := 0.09
 var weapon_recovery_time := 0.22
 var weapon_cooldown := 0.34
+var weapon_sheathe_delay := 0.45
 var max_health := 100.0
 var health := 100.0
 var invulnerable := false
@@ -33,6 +34,7 @@ var _weapon_cooldown_remaining := 0.0
 var _weapon_windup_remaining := 0.0
 var _weapon_active_remaining := 0.0
 var _weapon_recovery_remaining := 0.0
+var _weapon_sheathe_delay_remaining := 0.0
 var _weapon_swing_direction := Vector2.RIGHT
 var _dash_direction := Vector2.RIGHT
 var _touch_origin := Vector2.ZERO
@@ -103,6 +105,7 @@ func try_weapon_attack() -> void:
 	_weapon_windup_remaining = 0.0
 	_weapon_active_remaining = weapon_active_time
 	_weapon_recovery_remaining = 0.0
+	_weapon_sheathe_delay_remaining = 0.0
 	_weapon_swing_direction = _dash_direction
 	weapon_slashed.emit(global_position, _weapon_swing_direction, weapon_range, weapon_arc, weapon_damage)
 	queue_redraw()
@@ -219,12 +222,16 @@ func _draw_character() -> void:
 	draw_line(left_hand + facing * 26.0 + Vector2(-8.0, 10.0), left_hand + facing * 34.0 + Vector2(-10.0, 14.0), Color(0.94, 0.9, 0.74, 0.9), 2.0)
 
 func _draw_blade() -> void:
+	if not _is_blade_unsheathed():
+		_draw_sheath()
+		return
+
 	var blade_direction := _get_blade_direction()
 	var side := blade_direction.orthogonal()
 	var grip_start := blade_direction * 12.0
 	var hilt_center := blade_direction * 24.0
 	var blade_base := blade_direction * 31.0
-	var blade_tip := blade_direction * 92.0
+	var blade_tip := blade_direction * weapon_range
 
 	if _weapon_active_remaining > 0.0:
 		var sweep_progress: float = 1.0 - _weapon_active_remaining / weapon_active_time
@@ -271,6 +278,22 @@ func _draw_blade() -> void:
 	draw_line(blade_base - side * 5.5, blade_tip, Color(0.18, 0.12, 0.08, 0.58), 2.0)
 	draw_line(blade_base + side * 5.5, blade_tip, Color(0.86, 0.52, 0.22, 0.46), 2.0)
 
+func _draw_sheath() -> void:
+	var facing: Vector2 = _dash_direction.normalized()
+	var sheath_direction: Vector2 = Vector2(0.34, 0.94).normalized()
+	if facing.x < -0.25:
+		sheath_direction.x *= -1.0
+	var side := sheath_direction.orthogonal()
+	var sheath_start := Vector2(-9.0, 2.0) + facing * 3.0
+	var sheath_end := sheath_start + sheath_direction * 58.0
+	draw_line(sheath_start, sheath_end, Color(0.018, 0.012, 0.009, 1.0), 11.0)
+	draw_line(sheath_start, sheath_end, Color(0.18, 0.075, 0.035, 1.0), 7.0)
+	draw_line(sheath_start + side * 4.0, sheath_end + side * 4.0, Color(0.54, 0.29, 0.12, 0.72), 2.0)
+	draw_line(sheath_start - side * 7.0, sheath_start + side * 7.0, Color(0.62, 0.34, 0.16, 0.95), 4.0)
+
+func _is_blade_unsheathed() -> bool:
+	return _weapon_windup_remaining > 0.0 or _weapon_active_remaining > 0.0 or _weapon_recovery_remaining > 0.0 or _weapon_sheathe_delay_remaining > 0.0
+
 func _get_blade_direction() -> Vector2:
 	if _weapon_windup_remaining > 0.0:
 		return _weapon_swing_direction.rotated(-weapon_arc * 0.52).normalized()
@@ -283,6 +306,7 @@ func _get_blade_direction() -> Vector2:
 
 func _update_weapon_timers(delta: float) -> void:
 	_weapon_cooldown_remaining = max(0.0, _weapon_cooldown_remaining - delta)
+	_weapon_sheathe_delay_remaining = max(0.0, _weapon_sheathe_delay_remaining - delta)
 
 	if _weapon_windup_remaining > 0.0:
 		_weapon_windup_remaining = max(0.0, _weapon_windup_remaining - delta)
@@ -298,7 +322,10 @@ func _update_weapon_timers(delta: float) -> void:
 		return
 
 	if _weapon_recovery_remaining > 0.0:
+		var was_recovering := _weapon_recovery_remaining > 0.0
 		_weapon_recovery_remaining = max(0.0, _weapon_recovery_remaining - delta)
+		if was_recovering and _weapon_recovery_remaining <= 0.0:
+			_weapon_sheathe_delay_remaining = weapon_sheathe_delay
 
 func set_arena_bounds(arena: Rect2) -> void:
 	_arena_bounds = arena.grow(-PLAYER_RADIUS)

@@ -70,7 +70,7 @@ func _draw() -> void:
 		draw_line(Vector2.ZERO, _lunge_direction * 54.0, Color(0.86, 0.42, 0.16, 0.95), 4.0)
 	elif _lunge_timer > 0.0:
 		draw_line(-_lunge_direction * 34.0, -_lunge_direction * 58.0, Color(0.62, 0.34, 0.16, 0.65), 7.0)
-	_draw_crawling_legs(facing, side, color, 1.0, 1.25)
+	_draw_enemy_human_legs(facing, side, color, 1.0, 1.25)
 
 	var cloak := PackedVector2Array([
 		facing * 25.0,
@@ -89,11 +89,13 @@ func _draw() -> void:
 		-side * 20.0 + facing * 8.0,
 	])
 
-	draw_colored_polygon(cloak, Color(0.018, 0.012, 0.01, 0.98))
+	draw_colored_polygon(cloak, Color(0.055, 0.012, 0.008, 0.98))
 	draw_polyline(PackedVector2Array([cloak[0], cloak[1], cloak[2], cloak[3], cloak[4], cloak[0]]), color, 4.0)
+	draw_line(-side * 9.0 + facing * 5.0, side * 9.0 + facing * 5.0, Color(0.9, 0.1, 0.035, 0.94), 5.0)
 	draw_line(-side * 14.0 + facing * 2.0, -side * 29.0 - facing * 3.0, Color(0.03, 0.018, 0.014, 1.0), 5.0)
 	draw_line(side * 13.0 + facing * 2.0, side * 28.0 - facing * 3.0, Color(0.03, 0.018, 0.014, 1.0), 5.0)
-	draw_circle(facing * 10.0, 8.0, Color(0.12, 0.07, 0.045, 1.0))
+	draw_circle(facing * 10.0, 8.0, Color(0.46, 0.28, 0.18, 1.0))
 	draw_colored_polygon(brim, Color(0.008, 0.006, 0.005, 1.0))
 	draw_line(facing * 8.0 - side * 9.0, facing * 10.0 + side * 9.0, Color(0.72, 0.18, 0.08, 0.85), 3.0)
+	draw_line(facing * 13.0 - side * 9.0, facing * 46.0 - side * 18.0, Color(0.9, 0.9, 0.72, 0.9), 4.0)
 	draw_line(facing * 12.0, facing * 42.0 + side * 8.0, Color(0.86, 0.62, 0.36, 0.8), 3.0)

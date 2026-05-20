@@ -108,6 +108,132 @@ func _draw_dark_western_backdrop() -> void:
 		draw_rect(mesa_rect, Color(0.055, 0.03, 0.022, 0.9), true)
 		draw_rect(mesa_rect, Color(0.48, 0.22, 0.09, 0.28), false, 2.0)
 
+	_draw_old_west_perimeter(bounds, _get_vault_bounds())
+
+func _draw_old_west_perimeter(bounds: Rect2, arena: Rect2) -> void:
+	var street_color := Color(0.2, 0.105, 0.048, 0.42)
+	draw_rect(Rect2(Vector2(bounds.position.x, arena.position.y - 210.0), Vector2(bounds.size.x, 170.0)), street_color, true)
+	draw_rect(Rect2(Vector2(bounds.position.x, arena.end.y + 40.0), Vector2(bounds.size.x, 180.0)), street_color, true)
+	draw_rect(Rect2(Vector2(bounds.position.x, arena.position.y - 60.0), Vector2(arena.position.x - bounds.position.x - 38.0, arena.size.y + 120.0)), street_color, true)
+	draw_rect(Rect2(Vector2(arena.end.x + 38.0, arena.position.y - 60.0), Vector2(bounds.end.x - arena.end.x - 38.0, arena.size.y + 120.0)), street_color, true)
+
+	var top_y := arena.position.y - 348.0
+	var bottom_y := arena.end.y + 86.0
+	var left_x := arena.position.x - 372.0
+	var right_x := arena.end.x + 102.0
+
+	for i in range(7):
+		var x := arena.position.x - 430.0 + i * 342.0
+		var w := 250.0 + float((i * 37) % 64)
+		var h := 145.0 + float((i * 19) % 46)
+		_draw_saloon_front(Vector2(x, top_y + float((i % 2) * 20)), Vector2(w, h), i)
+		_draw_saloon_front(Vector2(x + 42.0, bottom_y + float(((i + 1) % 2) * 18)), Vector2(w - 24.0, h + 18.0), i + 9)
+
+	for i in range(4):
+		var y := arena.position.y - 150.0 + i * 305.0
+		_draw_side_storefront(Vector2(left_x, y), Vector2(232.0, 228.0), -1.0, i)
+		_draw_side_storefront(Vector2(right_x, y + 35.0), Vector2(232.0, 210.0), 1.0, i + 5)
+
+	for i in range(26):
+		var angle := TAU * float(i) / 26.0
+		var radius := Vector2(arena.size.x * 0.62, arena.size.y * 0.62)
+		var center := arena.get_center()
+		var pos := center + Vector2(cos(angle) * radius.x, sin(angle) * radius.y)
+		if arena.grow(72.0).has_point(pos):
+			continue
+		_draw_western_prop(pos, i)
+
+func _draw_saloon_front(position: Vector2, size: Vector2, index: int) -> void:
+	var body := Rect2(position, size)
+	var roof_height := 34.0
+	var porch_height := 26.0
+	var plank_color := Color(0.16 + float(index % 3) * 0.025, 0.075, 0.032, 0.96)
+	var trim_color := Color(0.55, 0.31, 0.15, 0.82)
+	var shadow_color := Color(0.035, 0.018, 0.012, 0.96)
+
+	draw_rect(body, plank_color, true)
+	draw_rect(Rect2(position + Vector2(-8.0, -roof_height), Vector2(size.x + 16.0, roof_height)), Color(0.075, 0.035, 0.02, 0.98), true)
+	draw_rect(body, Color(0.48, 0.25, 0.1, 0.72), false, 3.0)
+
+	for plank in range(6):
+		var x := position.x + 22.0 + plank * (size.x - 44.0) / 5.0
+		draw_line(Vector2(x, position.y), Vector2(x, position.y + size.y), Color(0.08, 0.035, 0.018, 0.42), 2.0)
+
+	var sign_rect := Rect2(position + Vector2(size.x * 0.26, 18.0), Vector2(size.x * 0.48, 32.0))
+	draw_rect(sign_rect, Color(0.28, 0.12, 0.05, 0.98), true)
+	draw_rect(sign_rect, trim_color, false, 2.0)
+	_draw_saloon_sign_marks(sign_rect, trim_color)
+
+	var door := Rect2(position + Vector2(size.x * 0.42, size.y * 0.47), Vector2(size.x * 0.16, size.y * 0.46))
+	draw_rect(door, shadow_color, true)
+	draw_line(door.position + Vector2(door.size.x * 0.5, 8.0), door.position + Vector2(door.size.x * 0.5, door.size.y - 4.0), trim_color, 2.0)
+	draw_circle(door.position + Vector2(door.size.x * 0.38, door.size.y * 0.52), 2.0, trim_color)
+	draw_circle(door.position + Vector2(door.size.x * 0.62, door.size.y * 0.52), 2.0, trim_color)
+
+	for side_index in range(2):
+		var wx := position.x + size.x * (0.17 if side_index == 0 else 0.73)
+		var window := Rect2(Vector2(wx, position.y + size.y * 0.48), Vector2(size.x * 0.15, size.y * 0.2))
+		draw_rect(window, Color(0.02, 0.012, 0.009, 0.96), true)
+		draw_rect(window, trim_color, false, 2.0)
+		draw_line(window.position + Vector2(0.0, window.size.y * 0.5), window.position + Vector2(window.size.x, window.size.y * 0.5), Color(0.82, 0.55, 0.24, 0.35), 2.0)
+		draw_line(window.position + Vector2(window.size.x * 0.5, 0.0), window.position + Vector2(window.size.x * 0.5, window.size.y), Color(0.82, 0.55, 0.24, 0.35), 2.0)
+
+	var porch := Rect2(position + Vector2(-16.0, size.y - porch_height), Vector2(size.x + 32.0, porch_height))
+	draw_rect(porch, Color(0.11, 0.052, 0.024, 0.95), true)
+	for post in range(4):
+		var px := porch.position.x + 20.0 + post * (porch.size.x - 40.0) / 3.0
+		draw_line(Vector2(px, porch.position.y), Vector2(px, position.y + size.y + 18.0), trim_color, 5.0)
+	draw_line(porch.position, porch.position + Vector2(porch.size.x, 0.0), Color(0.76, 0.45, 0.2, 0.5), 3.0)
+
+func _draw_side_storefront(position: Vector2, size: Vector2, direction: float, index: int) -> void:
+	var body := Rect2(position, size)
+	var front_x := position.x if direction < 0.0 else position.x + size.x
+	var fade_x := position.x + size.x if direction < 0.0 else position.x
+	draw_rect(body, Color(0.11, 0.052, 0.026, 0.94), true)
+	draw_rect(body, Color(0.42, 0.22, 0.1, 0.68), false, 3.0)
+	draw_line(Vector2(front_x, position.y - 18.0), Vector2(front_x, position.y + size.y + 16.0), Color(0.62, 0.35, 0.16, 0.78), 7.0)
+	draw_line(Vector2(fade_x, position.y), Vector2(fade_x, position.y + size.y), Color(0.02, 0.012, 0.009, 0.5), 14.0)
+	for floor_index in range(3):
+		var y := position.y + 42.0 + floor_index * 58.0
+		draw_line(Vector2(position.x + 14.0, y), Vector2(position.x + size.x - 14.0, y + sin(index + floor_index) * 5.0), Color(0.58, 0.32, 0.14, 0.42), 4.0)
+	var hanging_sign := Rect2(Vector2(front_x - direction * 72.0 - 36.0, position.y + 36.0), Vector2(72.0, 34.0))
+	draw_line(Vector2(front_x, position.y + 30.0), hanging_sign.position + Vector2(36.0, 0.0), Color(0.42, 0.22, 0.1, 0.88), 3.0)
+	draw_rect(hanging_sign, Color(0.23, 0.1, 0.042, 0.98), true)
+	draw_rect(hanging_sign, Color(0.75, 0.45, 0.2, 0.72), false, 2.0)
+	_draw_saloon_sign_marks(hanging_sign, Color(0.75, 0.45, 0.2, 0.62))
+
+func _draw_saloon_sign_marks(sign_rect: Rect2, color: Color) -> void:
+	var y := sign_rect.position.y + sign_rect.size.y * 0.55
+	for i in range(5):
+		var x := sign_rect.position.x + 12.0 + i * (sign_rect.size.x - 24.0) / 4.0
+		draw_line(Vector2(x - 5.0, y), Vector2(x + 5.0, y), color, 3.0)
+		draw_line(Vector2(x, y - 7.0), Vector2(x, y + 7.0), color, 2.0)
+
+func _draw_western_prop(position: Vector2, index: int) -> void:
+	match index % 5:
+		0:
+			draw_rect(Rect2(position + Vector2(-12.0, -12.0), Vector2(24.0, 24.0)), Color(0.12, 0.06, 0.03, 0.92), true)
+			draw_rect(Rect2(position + Vector2(-12.0, -12.0), Vector2(24.0, 24.0)), Color(0.58, 0.32, 0.14, 0.54), false, 2.0)
+			draw_line(position + Vector2(-15.0, 0.0), position + Vector2(15.0, 0.0), Color(0.04, 0.02, 0.01, 0.76), 3.0)
+		1:
+			draw_circle(position, 18.0, Color(0.11, 0.052, 0.024, 0.9))
+			draw_circle(position, 12.0, Color(0.055, 0.026, 0.014, 0.96))
+			draw_line(position + Vector2(-18.0, -2.0), position + Vector2(18.0, 2.0), Color(0.72, 0.42, 0.18, 0.5), 3.0)
+		2:
+			draw_line(position + Vector2(0.0, -24.0), position + Vector2(0.0, 28.0), Color(0.18, 0.08, 0.035, 0.94), 5.0)
+			draw_circle(position + Vector2(0.0, -30.0), 8.0, Color(0.82, 0.42, 0.16, 0.36))
+			draw_circle(position + Vector2(0.0, -30.0), 4.0, Color(1.0, 0.74, 0.32, 0.48))
+		3:
+			var hitch := Rect2(position + Vector2(-30.0, -8.0), Vector2(60.0, 10.0))
+			draw_rect(hitch, Color(0.12, 0.055, 0.024, 0.94), true)
+			draw_line(position + Vector2(-24.0, -8.0), position + Vector2(-24.0, 18.0), Color(0.2, 0.1, 0.045, 0.9), 4.0)
+			draw_line(position + Vector2(24.0, -8.0), position + Vector2(24.0, 18.0), Color(0.2, 0.1, 0.045, 0.9), 4.0)
+		_:
+			draw_line(position + Vector2(-22.0, -10.0), position + Vector2(22.0, 12.0), Color(0.09, 0.04, 0.018, 0.9), 5.0)
+			draw_line(position + Vector2(-18.0, 12.0), position + Vector2(18.0, -10.0), Color(0.09, 0.04, 0.018, 0.9), 5.0)
+			draw_circle(position + Vector2(-24.0, 14.0), 6.0, Color(0.04, 0.02, 0.01, 0.9))
+			draw_circle(position + Vector2(24.0, 14.0), 6.0, Color(0.04, 0.02, 0.01, 0.9))
+
 func _draw_sand_detail(arena: Rect2) -> void:
 	for i in range(16):
 		var y := lerpf(arena.position.y + 90.0, arena.end.y - 90.0, float(i) / 15.0)
