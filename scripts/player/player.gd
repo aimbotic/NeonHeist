@@ -25,8 +25,7 @@ var invulnerable := false
 const PLAYER_RADIUS := 22.0
 const CORRIDOR_HALF_WIDTH := 36.0
 
-var _playable_rooms: Array[Rect2] = []
-var _playable_corridors: Array[Dictionary] = []
+var _arena_bounds := Rect2()
 
 var _dash_time := 0.0
 var _dash_cooldown_remaining := 0.0
@@ -64,7 +63,7 @@ func _physics_process(delta: float) -> void:
 		velocity = velocity.move_toward(target_velocity, acceleration * delta)
 
 	move_and_slide()
-	_keep_inside_maze()
+	_keep_inside_arena()
 	queue_redraw()
 
 func _draw() -> void:
@@ -141,17 +140,17 @@ func _draw_character() -> void:
 	])
 	var duster := PackedVector2Array([
 		origin + facing * 24.0,
-		origin + side * 16.0 + facing * 5.0,
-		origin + side * 12.0 - facing * 30.0,
-		origin - side * 12.0 - facing * 30.0,
-		origin - side * 18.0 + facing * 3.0,
+		origin + side * 13.0 + facing * 5.0,
+		origin + side * 10.0 - facing * 30.0,
+		origin - side * 10.0 - facing * 30.0,
+		origin - side * 15.0 + facing * 3.0,
 	])
 	var shirt := PackedVector2Array([
-		origin + facing * 18.0,
-		origin + side * 6.0 + facing * 1.0,
-		origin + side * 4.0 - facing * 18.0,
-		origin - side * 5.0 - facing * 18.0,
-		origin - side * 7.0 + facing * 1.0,
+		origin + facing * 20.0,
+		origin + side * 6.0 + facing * 2.0,
+		origin + side * 5.0 - facing * 20.0,
+		origin - side * 5.0 - facing * 20.0,
+		origin - side * 7.0 + facing * 2.0,
 	])
 	var hat_brim := PackedVector2Array([
 		origin + facing * 26.0,
@@ -184,6 +183,7 @@ func _draw_character() -> void:
 	draw_colored_polygon(duster, Color(0.095, 0.055, 0.036, 0.98))
 	draw_polyline(PackedVector2Array([duster[0], duster[1], duster[2], duster[3], duster[4], duster[0]]), Color(0.57, 0.31, 0.14, 0.8), 2.5)
 	draw_colored_polygon(shirt, Color(0.035, 0.025, 0.02, 1.0))
+	draw_line(origin + facing * 18.0 - side * 7.0, origin - facing * 17.0 - side * 5.0, Color(0.58, 0.31, 0.14, 0.55), 2.0)
 	draw_line(origin - side * 7.0 - facing * 11.0, origin - side * (16.0 + step * 4.0) - facing * (31.0 + max(0.0, step) * 5.0), Color(0.025, 0.018, 0.015, 1.0), 5.0)
 	draw_line(origin + side * 7.0 - facing * 11.0, origin + side * (16.0 - step * 4.0) - facing * (31.0 + max(0.0, -step) * 5.0), Color(0.025, 0.018, 0.015, 1.0), 5.0)
 	draw_line(origin - side * (8.0 + step * 2.0) - facing * 31.0, origin - side * (18.0 + step * 5.0) - facing * 40.0, Color(0.01, 0.008, 0.008, 1.0), 4.0)
@@ -193,6 +193,7 @@ func _draw_character() -> void:
 	draw_line(origin + side * 11.0 - facing * 4.0, origin + side * 20.0 - facing * 15.0, Color(0.55, 0.29, 0.13, 0.95), 3.0)
 	draw_colored_polygon(hair, Color(0.01, 0.008, 0.008, 1.0))
 	draw_circle(origin + facing * 9.0, 9.5, Color(0.54, 0.36, 0.26, 0.98))
+	draw_line(origin + facing * 7.0 - side * 3.0, origin + facing * 3.0 - side * 7.0, Color(0.26, 0.08, 0.055, 0.9), 2.0)
 	draw_line(origin + facing * 9.0 - side * 11.0, origin + facing * 12.0 + side * 11.0, Color(0.01, 0.007, 0.006, 1.0), 12.0)
 	draw_line(origin + facing * 3.0 - side * 5.0, origin + facing * 0.0 - side * 12.0, Color(0.01, 0.008, 0.008, 1.0), 4.0)
 	draw_colored_polygon(hat_brim, Color(0.025, 0.018, 0.015, 1.0))
@@ -266,20 +267,8 @@ func _update_weapon_timers(delta: float) -> void:
 	if _weapon_recovery_remaining > 0.0:
 		_weapon_recovery_remaining = max(0.0, _weapon_recovery_remaining - delta)
 
-func set_maze_geometry(rooms: Array, corridors: Array) -> void:
-	_playable_rooms.clear()
-	_playable_corridors.clear()
-
-	for room in rooms:
-		var rect: Rect2 = room["rect"]
-		_playable_rooms.append(rect.grow(-PLAYER_RADIUS))
-
-	for corridor in corridors:
-		_playable_corridors.append({
-			"from": corridor["from"],
-			"to": corridor["to"],
-			"radius": CORRIDOR_HALF_WIDTH,
-		})
+func set_arena_bounds(arena: Rect2) -> void:
+	_arena_bounds = arena.grow(-PLAYER_RADIUS)
 
 func _read_movement_input() -> Vector2:
 	var keyboard := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
@@ -289,57 +278,9 @@ func _read_movement_input() -> Vector2:
 		return _touch_vector.normalized()
 	return Vector2.ZERO
 
-func _keep_inside_maze() -> void:
-	if _is_inside_maze(global_position):
+func _keep_inside_arena() -> void:
+	if _arena_bounds.size == Vector2.ZERO or _arena_bounds.has_point(global_position):
 		return
 
-	global_position = _nearest_maze_point(global_position)
+	global_position = global_position.clamp(_arena_bounds.position, _arena_bounds.end)
 	velocity = Vector2.ZERO
-
-func _is_inside_maze(point: Vector2) -> bool:
-	for rect in _playable_rooms:
-		if rect.has_point(point):
-			return true
-
-	for corridor in _playable_corridors:
-		var closest := _closest_point_on_segment(point, corridor["from"], corridor["to"])
-		if point.distance_to(closest) <= corridor["radius"]:
-			return true
-
-	return false
-
-func _nearest_maze_point(point: Vector2) -> Vector2:
-	var nearest := point
-	var nearest_distance := INF
-
-	for rect in _playable_rooms:
-		var candidate := point.clamp(rect.position, rect.end)
-		var distance := point.distance_squared_to(candidate)
-		if distance < nearest_distance:
-			nearest = candidate
-			nearest_distance = distance
-
-	for corridor in _playable_corridors:
-		var line_point := _closest_point_on_segment(point, corridor["from"], corridor["to"])
-		var offset := point - line_point
-		var candidate: Vector2
-		if offset.length_squared() <= corridor["radius"] * corridor["radius"]:
-			candidate = point
-		else:
-			candidate = line_point + offset.normalized() * corridor["radius"]
-
-		var distance := point.distance_squared_to(candidate)
-		if distance < nearest_distance:
-			nearest = candidate
-			nearest_distance = distance
-
-	return nearest
-
-func _closest_point_on_segment(point: Vector2, segment_start: Vector2, segment_end: Vector2) -> Vector2:
-	var segment := segment_end - segment_start
-	var length_squared := segment.length_squared()
-	if length_squared <= 0.001:
-		return segment_start
-
-	var t := clamp((point - segment_start).dot(segment) / length_squared, 0.0, 1.0)
-	return segment_start + segment * t

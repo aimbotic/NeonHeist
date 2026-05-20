@@ -59,6 +59,10 @@ func _physics_process(delta: float) -> void:
 
 func _draw() -> void:
 	var color := _health_color(Color(0.72, 0.18, 0.08))
+	var facing := _lunge_direction.normalized()
+	if player != null and _lunge_timer <= 0.0 and _windup_timer <= 0.0:
+		facing = global_position.direction_to(player.global_position)
+	var side := facing.orthogonal()
 	if _windup_timer > 0.0:
 		var charge := 1.0 - _windup_timer / 0.34
 		color = Color(0.86, 0.62, 0.36) if int(charge * 10.0) % 2 == 0 else Color(0.72, 0.18, 0.08)
@@ -66,13 +70,31 @@ func _draw() -> void:
 		draw_line(Vector2.ZERO, _lunge_direction * 54.0, Color(0.86, 0.42, 0.16, 0.95), 4.0)
 	elif _lunge_timer > 0.0:
 		draw_line(-_lunge_direction * 34.0, -_lunge_direction * 58.0, Color(0.62, 0.34, 0.16, 0.65), 7.0)
-	var points := PackedVector2Array([
-		Vector2(26, 0),
-		Vector2(-18, -18),
-		Vector2(-10, 0),
-		Vector2(-18, 18),
+
+	var cloak := PackedVector2Array([
+		facing * 25.0,
+		side * 15.0 + facing * 4.0,
+		side * 11.0 - facing * 24.0,
+		-side * 11.0 - facing * 24.0,
+		-side * 15.0 + facing * 4.0,
 	])
-	draw_colored_polygon(points, Color(0.03, 0.018, 0.014, 0.98))
-	var outline := PackedVector2Array([points[0], points[1], points[2], points[3], points[0]])
-	draw_polyline(outline, color, 4.0)
-	draw_circle(Vector2(4, 0), 5.0, Color(0.86, 0.42, 0.16))
+	var brim := PackedVector2Array([
+		facing * 19.0,
+		side * 20.0 + facing * 8.0,
+		side * 23.0,
+		side * 7.0 - facing * 8.0,
+		-side * 7.0 - facing * 8.0,
+		-side * 23.0,
+		-side * 20.0 + facing * 8.0,
+	])
+
+	draw_colored_polygon(cloak, Color(0.018, 0.012, 0.01, 0.98))
+	draw_polyline(PackedVector2Array([cloak[0], cloak[1], cloak[2], cloak[3], cloak[4], cloak[0]]), color, 4.0)
+	draw_line(-side * 7.0 - facing * 13.0, -side * 17.0 - facing * 28.0, Color(0.01, 0.008, 0.007, 1.0), 5.0)
+	draw_line(side * 7.0 - facing * 13.0, side * 17.0 - facing * 28.0, Color(0.01, 0.008, 0.007, 1.0), 5.0)
+	draw_line(-side * 14.0 + facing * 2.0, -side * 30.0 - facing * 9.0, Color(0.03, 0.018, 0.014, 1.0), 5.0)
+	draw_line(side * 13.0 + facing * 2.0, side * 29.0 - facing * 10.0, Color(0.03, 0.018, 0.014, 1.0), 5.0)
+	draw_circle(facing * 10.0, 8.0, Color(0.12, 0.07, 0.045, 1.0))
+	draw_colored_polygon(brim, Color(0.008, 0.006, 0.005, 1.0))
+	draw_line(facing * 8.0 - side * 9.0, facing * 10.0 + side * 9.0, Color(0.72, 0.18, 0.08, 0.85), 3.0)
+	draw_line(facing * 12.0, facing * 42.0 + side * 8.0, Color(0.86, 0.62, 0.36, 0.8), 3.0)

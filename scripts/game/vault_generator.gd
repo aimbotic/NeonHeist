@@ -1,41 +1,25 @@
 class_name VaultGenerator
 extends RefCounted
 
-const ROOM_SIZE := Vector2(360.0, 240.0)
-const ROOM_GAP := Vector2(520.0, 360.0)
+const ARENA_SIZE := Vector2(2200.0, 1400.0)
 
 var _rng := RandomNumberGenerator.new()
 
-func generate(seed_value: int, biome_id: String = "financial_mainframe") -> Dictionary:
+func generate(seed_value: int, biome_id: String = "dust_arena") -> Dictionary:
 	_rng.seed = seed_value
-	var rooms: Array[Dictionary] = []
-	var occupied := {}
-	var cursor := Vector2i.ZERO
-	var target_count := 14
-
-	for i in range(target_count):
-		if not occupied.has(cursor):
-			occupied[cursor] = true
-			rooms.append(_make_room(cursor, i))
-
-		var direction := _pick_direction(i)
-		cursor += direction
-
-		if occupied.has(cursor) and _rng.randf() < 0.55:
-			cursor += _pick_direction(i + 3)
-
-	var corridors := _connect_rooms(rooms)
-	var spawn: Vector2 = rooms[0]["center"]
-	var extraction: Vector2 = rooms[rooms.size() - 1]["center"]
-	var hack_nodes := _pick_room_points(rooms, 5, 88.0)
-	var hazards := _pick_room_points(rooms, 9, 120.0)
-	var enemy_spawns := _pick_room_points(rooms, 12, 96.0)
+	var arena := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
+	var spawn := arena.get_center() + Vector2(-ARENA_SIZE.x * 0.32, 0.0)
+	var extraction := arena.get_center() + Vector2(ARENA_SIZE.x * 0.36, 0.0)
+	var hack_nodes := _pick_arena_points(arena, 5, 190.0, [spawn, extraction], 260.0)
+	var hazards := _pick_arena_points(arena, 10, 130.0, [spawn, extraction], 170.0)
+	var enemy_spawns := _pick_arena_points(arena, 15, 120.0, [spawn], 260.0)
 
 	return {
 		"seed": seed_value,
 		"biome": biome_id,
-		"rooms": rooms,
-		"corridors": corridors,
+		"arena": arena,
+		"rooms": [{"id": 0, "grid": Vector2i.ZERO, "center": arena.get_center(), "rect": arena}],
+		"corridors": [],
 		"spawn": spawn,
 		"extraction": extraction,
 		"hack_nodes": hack_nodes,
@@ -43,63 +27,26 @@ func generate(seed_value: int, biome_id: String = "financial_mainframe") -> Dict
 		"enemy_spawns": enemy_spawns,
 	}
 
-func _make_room(grid: Vector2i, index: int) -> Dictionary:
-	var center := Vector2(grid) * ROOM_GAP
-	var size := ROOM_SIZE + Vector2(_rng.randi_range(-56, 96), _rng.randi_range(-36, 64))
-	return {
-		"id": index,
-		"grid": grid,
-		"center": center,
-		"rect": Rect2(center - size * 0.5, size),
-	}
-
-func _pick_direction(salt: int) -> Vector2i:
-	var directions: Array[Vector2i] = [
-		Vector2i.RIGHT,
-		Vector2i.LEFT,
-		Vector2i.DOWN,
-		Vector2i.UP,
-	]
-	var weighted_index := _rng.randi_range(0, directions.size() - 1)
-	if salt % 4 == 0:
-		weighted_index = 0
-	elif salt % 5 == 0:
-		weighted_index = 2
-	return directions[weighted_index]
-
-func _connect_rooms(rooms: Array[Dictionary]) -> Array[Dictionary]:
-	var corridors: Array[Dictionary] = []
-	for i in range(rooms.size() - 1):
-		var from_room := rooms[i]
-		var to_room := rooms[i + 1]
-		corridors.append({
-			"from": from_room["center"],
-			"to": to_room["center"],
-		})
-	return corridors
-
-func _pick_room_points(rooms: Array[Dictionary], count: int, margin: float) -> Array[Vector2]:
+func _pick_arena_points(arena: Rect2, count: int, margin: float, avoid_points: Array, avoid_radius: float) -> Array[Vector2]:
 	var points: Array[Vector2] = []
-	var candidates := rooms.duplicate()
-	for i in range(candidates.size() - 1, 0, -1):
-		var swap_index := _rng.randi_range(0, i)
-		var temp = candidates[i]
-		candidates[i] = candidates[swap_index]
-		candidates[swap_index] = temp
-
-	for room in candidates:
-		if points.size() >= count:
-			break
-		if room["id"] == 0:
+	var usable := arena.grow(-margin)
+	var attempts := 0
+	while points.size() < count and attempts < count * 80:
+		attempts += 1
+		var candidate := Vector2(
+			_rng.randf_range(usable.position.x, usable.end.x),
+			_rng.randf_range(usable.position.y, usable.end.y)
+		)
+		if _too_close(candidate, avoid_points, avoid_radius):
 			continue
-
-		var rect: Rect2 = room["rect"].grow(-margin)
-		if rect.size.x <= 20.0 or rect.size.y <= 20.0:
+		if _too_close(candidate, points, 160.0):
 			continue
-
-		points.append(Vector2(
-			_rng.randf_range(rect.position.x, rect.position.x + rect.size.x),
-			_rng.randf_range(rect.position.y, rect.position.y + rect.size.y)
-		))
+		points.append(candidate)
 
 	return points
+
+func _too_close(candidate: Vector2, points: Array, distance: float) -> bool:
+	for point in points:
+		if candidate.distance_to(point) < distance:
+			return true
+	return false

@@ -66,17 +66,15 @@ func _draw() -> void:
 
 	_draw_dark_western_backdrop()
 
-	for corridor in vault_data["corridors"]:
-		draw_line(corridor["from"], corridor["to"], Color(0.12, 0.075, 0.045, 0.82), 90.0)
-		draw_line(corridor["from"], corridor["to"], Color(0.38, 0.2, 0.085, 0.42), 52.0)
-		draw_line(corridor["from"], corridor["to"], Color(0.72, 0.38, 0.16, 0.42), 8.0)
+	var arena: Rect2 = vault_data["arena"]
+	draw_rect(arena, Color(0.075, 0.047, 0.032, 0.78), true)
+	draw_rect(arena.grow(-14.0), Color(0.22, 0.12, 0.055, 0.34), false, 3.0)
+	draw_rect(arena, Color(0.55, 0.29, 0.12, 0.58), false, 6.0)
+	draw_rect(arena.grow(-42.0), Color(0.78, 0.47, 0.2, 0.11), false, 2.0)
 
-	for room in vault_data["rooms"]:
-		var rect: Rect2 = room["rect"]
-		draw_rect(rect, Color(0.075, 0.047, 0.032, 0.96), true)
-		draw_rect(rect.grow(-10.0), Color(0.2, 0.105, 0.052, 0.46), false, 2.0)
-		draw_rect(rect, Color(0.55, 0.29, 0.12, 0.5), false, 4.0)
-		draw_rect(rect.grow(-18.0), Color(0.78, 0.47, 0.2, 0.15), false, 2.0)
+	for i in range(9):
+		var y := lerpf(arena.position.y + 160.0, arena.end.y - 160.0, float(i) / 8.0)
+		draw_line(Vector2(arena.position.x + 90.0, y), Vector2(arena.end.x - 90.0, y + sin(i * 1.8) * 26.0), Color(0.19, 0.1, 0.045, 0.22), 5.0)
 
 	for hazard in vault_data["hazards"]:
 		draw_circle(hazard, 22.0, Color(0.78, 0.2, 0.06, 0.32))
@@ -126,13 +124,7 @@ func _draw_dark_western_backdrop() -> void:
 		draw_rect(mesa_rect, Color(0.48, 0.22, 0.09, 0.28), false, 2.0)
 
 func _get_vault_bounds() -> Rect2:
-	var bounds := Rect2(vault_data["spawn"], Vector2.ZERO)
-	for room in vault_data["rooms"]:
-		bounds = bounds.merge(room["rect"])
-	for corridor in vault_data["corridors"]:
-		bounds = bounds.expand(corridor["from"])
-		bounds = bounds.expand(corridor["to"])
-	return bounds
+	return vault_data["arena"]
 
 func _unhandled_input(event: InputEvent) -> void:
 	if run_complete:
@@ -177,7 +169,7 @@ func _start_run() -> void:
 	player = PlayerScene.new()
 	add_child(player)
 	player.position = vault_data["spawn"]
-	player.set_maze_geometry(vault_data["rooms"], vault_data["corridors"])
+	player.set_arena_bounds(vault_data["arena"])
 	player.dash_used.connect(_on_player_dash)
 	player.weapon_slashed.connect(_on_player_weapon_slashed)
 	player.player_damaged.connect(_on_player_damaged)
