@@ -2,16 +2,10 @@ class_name ProgramSystem
 extends Node
 
 var available_programs := {
-	"emp_blast": {"name": "EMP Blast", "cooldown": 2.8},
-	"chain_lightning": {"name": "Chain Lightning", "cooldown": 4.5},
-	"virus_pulse": {"name": "Virus Pulse", "cooldown": 5.0},
-	"firewall": {"name": "Firewall", "cooldown": 8.0},
-	"cloak": {"name": "Cloak", "cooldown": 10.0},
-	"mirror_shield": {"name": "Mirror Shield", "cooldown": 9.0},
-	"teleport": {"name": "Teleport", "cooldown": 6.0},
-	"time_slow": {"name": "Time Slow", "cooldown": 7.5},
-	"path_reveal": {"name": "Path Reveal", "cooldown": 3.0},
-	"chain_node": {"name": "Chain Node", "cooldown": 6.0},
+	"deadeye": {"name": "Deadeye", "cooldown": 7.5},
+	"ricochet_shot": {"name": "Ricochet Shot", "cooldown": 4.5},
+	"dust_veil": {"name": "Dust Veil", "cooldown": 8.0},
+	"quickdraw": {"name": "Quickdraw", "cooldown": 5.5},
 }
 
 var unlocked := {}
@@ -27,9 +21,10 @@ func _physics_process(delta: float) -> void:
 
 func reset() -> void:
 	unlocked = {
-		"emp_blast": true,
-		"chain_lightning": true,
-		"time_slow": true,
+		"deadeye": true,
+		"ricochet_shot": true,
+		"dust_veil": true,
+		"quickdraw": true,
 	}
 	cooldowns.clear()
 
@@ -41,17 +36,19 @@ func cast(program_id: String, origin: Vector2, enemies: Array[Node2D]) -> Dictio
 	cooldowns[program_id] = data.get("cooldown", 3.0)
 
 	match program_id:
-		"emp_blast":
-			return _area_program(origin, enemies, 230.0, 45.0, 0.18, Color(0.2, 1.0, 1.0), 0.0)
-		"chain_lightning":
-			return _area_program(origin, enemies, 390.0, 34.0, 0.28, Color(1.0, 0.18, 0.82), 260.0)
-		"time_slow":
+		"deadeye":
 			for enemy in enemies:
-				if is_instance_valid(enemy) and origin.distance_to(enemy.global_position) <= 460.0:
-					enemy.apply_slow(2.4)
-			return _area_program(origin, enemies, 220.0, 14.0, 0.1, Color(0.55, 0.38, 1.0), 0.0)
+				if is_instance_valid(enemy) and origin.distance_to(enemy.global_position) <= 520.0:
+					enemy.apply_slow(2.8)
+			return _area_program(origin, enemies, 230.0, 10.0, 0.1, Color(0.9, 0.68, 0.32), 0.0, "deadeye")
+		"ricochet_shot":
+			return _area_program(origin, enemies, 410.0, 38.0, 0.22, Color(0.95, 0.36, 0.1), 300.0, "ricochet")
+		"dust_veil":
+			return _area_program(origin, enemies, 210.0, 8.0, 0.06, Color(0.78, 0.58, 0.34), 0.0, "veil", 1.25)
+		"quickdraw":
+			return _area_program(origin, enemies, 170.0, 60.0, 0.18, Color(1.0, 0.86, 0.46), 0.0, "quickdraw")
 		_:
-			return _area_program(origin, enemies, 180.0, 24.0, 0.14, Color(1.0, 0.48, 0.08), 0.0)
+			return _area_program(origin, enemies, 180.0, 24.0, 0.14, Color(1.0, 0.48, 0.08), 0.0, "")
 
 func award_random_program() -> String:
 	var locked: Array[String] = []
@@ -78,7 +75,7 @@ func get_equipped_summary() -> Array[Dictionary]:
 		})
 	return summary
 
-func _area_program(origin: Vector2, enemies: Array[Node2D], radius: float, damage: float, heat: float, color: Color, chain_radius: float) -> Dictionary:
+func _area_program(origin: Vector2, enemies: Array[Node2D], radius: float, damage: float, heat: float, color: Color, chain_radius: float, effect: String, veil_duration: float = 0.0) -> Dictionary:
 	var hit_enemies: Array[Node2D] = []
 	for enemy in enemies:
 		if is_instance_valid(enemy) and origin.distance_to(enemy.global_position) <= radius:
@@ -90,4 +87,6 @@ func _area_program(origin: Vector2, enemies: Array[Node2D], radius: float, damag
 		"heat": heat,
 		"color": color,
 		"chain_radius": chain_radius,
+		"effect": effect,
+		"veil_duration": veil_duration,
 	}

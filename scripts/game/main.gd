@@ -4,6 +4,8 @@ const PlayerScene := preload("res://scripts/player/player.gd")
 const DroneScene := preload("res://scripts/enemies/drone.gd")
 const HunterScene := preload("res://scripts/enemies/hunter.gd")
 const TurretScene := preload("res://scripts/enemies/turret.gd")
+const ShotgunBruteScene := preload("res://scripts/enemies/shotgun_brute.gd")
+const DuelistScene := preload("res://scripts/enemies/duelist.gd")
 const DirectorScene := preload("res://scripts/game/game_director.gd")
 const ProgramSystemScene := preload("res://scripts/systems/program_system.gd")
 const SaveSystemScene := preload("res://scripts/systems/save_system.gd")
@@ -68,10 +70,10 @@ func _draw() -> void:
 	_draw_dark_western_backdrop()
 
 	var arena: Rect2 = vault_data["arena"]
-	draw_rect(arena, Color(0.38, 0.22, 0.105, 0.96), true)
-	draw_rect(arena.grow(-14.0), Color(0.64, 0.39, 0.17, 0.2), false, 3.0)
-	draw_rect(arena, Color(0.55, 0.29, 0.12, 0.58), false, 6.0)
-	draw_rect(arena.grow(-42.0), Color(0.86, 0.62, 0.33, 0.12), false, 2.0)
+	draw_rect(arena, Color(0.78, 0.55, 0.24, 0.98), true)
+	draw_rect(arena.grow(-14.0), Color(1.0, 0.78, 0.36, 0.22), false, 3.0)
+	draw_rect(arena, Color(0.43, 0.24, 0.1, 0.72), false, 8.0)
+	draw_rect(arena.grow(-42.0), Color(1.0, 0.86, 0.48, 0.2), false, 2.0)
 
 	_draw_sand_detail(arena)
 
@@ -111,28 +113,31 @@ func _draw_dark_western_backdrop() -> void:
 	_draw_old_west_perimeter(bounds, _get_vault_bounds())
 
 func _draw_old_west_perimeter(bounds: Rect2, arena: Rect2) -> void:
-	var street_color := Color(0.2, 0.105, 0.048, 0.42)
-	draw_rect(Rect2(Vector2(bounds.position.x, arena.position.y - 210.0), Vector2(bounds.size.x, 170.0)), street_color, true)
-	draw_rect(Rect2(Vector2(bounds.position.x, arena.end.y + 40.0), Vector2(bounds.size.x, 180.0)), street_color, true)
-	draw_rect(Rect2(Vector2(bounds.position.x, arena.position.y - 60.0), Vector2(arena.position.x - bounds.position.x - 38.0, arena.size.y + 120.0)), street_color, true)
-	draw_rect(Rect2(Vector2(arena.end.x + 38.0, arena.position.y - 60.0), Vector2(bounds.end.x - arena.end.x - 38.0, arena.size.y + 120.0)), street_color, true)
+	var street_color := Color(0.34, 0.19, 0.08, 0.56)
+	draw_rect(Rect2(Vector2(bounds.position.x, arena.position.y - 260.0), Vector2(bounds.size.x, 230.0)), street_color, true)
+	draw_rect(Rect2(Vector2(bounds.position.x, arena.end.y + 30.0), Vector2(bounds.size.x, 230.0)), street_color, true)
+	draw_rect(Rect2(Vector2(bounds.position.x, arena.position.y - 30.0), Vector2(arena.position.x - bounds.position.x - 30.0, arena.size.y + 60.0)), street_color, true)
+	draw_rect(Rect2(Vector2(arena.end.x + 30.0, arena.position.y - 30.0), Vector2(bounds.end.x - arena.end.x - 30.0, arena.size.y + 60.0)), street_color, true)
 
-	var top_y := arena.position.y - 348.0
-	var bottom_y := arena.end.y + 86.0
-	var left_x := arena.position.x - 372.0
-	var right_x := arena.end.x + 102.0
+	var courtyard_shadow := arena.grow(34.0)
+	draw_rect(courtyard_shadow, Color(0.08, 0.035, 0.018, 0.28), false, 16.0)
+
+	var top_y := arena.position.y - 248.0
+	var bottom_y := arena.end.y + 58.0
+	var left_x := arena.position.x - 266.0
+	var right_x := arena.end.x + 34.0
 
 	for i in range(7):
-		var x := arena.position.x - 430.0 + i * 342.0
-		var w := 250.0 + float((i * 37) % 64)
-		var h := 145.0 + float((i * 19) % 46)
-		_draw_saloon_front(Vector2(x, top_y + float((i % 2) * 20)), Vector2(w, h), i)
-		_draw_saloon_front(Vector2(x + 42.0, bottom_y + float(((i + 1) % 2) * 18)), Vector2(w - 24.0, h + 18.0), i + 9)
+		var x := arena.position.x - 130.0 + i * 310.0
+		var w := 286.0 + float((i * 37) % 42)
+		var h := 190.0 + float((i * 19) % 28)
+		_draw_saloon_front(Vector2(x, top_y + float((i % 2) * 10)), Vector2(w, h), i)
+		_draw_saloon_front(Vector2(x + 24.0, bottom_y + float(((i + 1) % 2) * 10)), Vector2(w - 18.0, h + 10.0), i + 9)
 
 	for i in range(4):
-		var y := arena.position.y - 150.0 + i * 305.0
-		_draw_side_storefront(Vector2(left_x, y), Vector2(232.0, 228.0), -1.0, i)
-		_draw_side_storefront(Vector2(right_x, y + 35.0), Vector2(232.0, 210.0), 1.0, i + 5)
+		var y := arena.position.y - 24.0 + i * 330.0
+		_draw_side_storefront(Vector2(left_x, y), Vector2(236.0, 286.0), -1.0, i)
+		_draw_side_storefront(Vector2(right_x, y + 18.0), Vector2(236.0, 270.0), 1.0, i + 5)
 
 	for i in range(26):
 		var angle := TAU * float(i) / 26.0
@@ -238,14 +243,14 @@ func _draw_sand_detail(arena: Rect2) -> void:
 	for i in range(16):
 		var y := lerpf(arena.position.y + 90.0, arena.end.y - 90.0, float(i) / 15.0)
 		var wave := sin(i * 1.8) * 34.0
-		var color := Color(0.76, 0.5, 0.24, 0.16) if i % 2 == 0 else Color(0.2, 0.1, 0.045, 0.18)
+		var color := Color(1.0, 0.78, 0.38, 0.22) if i % 2 == 0 else Color(0.46, 0.27, 0.11, 0.16)
 		draw_line(Vector2(arena.position.x + 70.0, y), Vector2(arena.end.x - 70.0, y + wave), color, 7.0)
 
 	for i in range(72):
 		var x := arena.position.x + float((i * 173) % int(arena.size.x - 160.0)) + 80.0
 		var y := arena.position.y + float((i * 97) % int(arena.size.y - 160.0)) + 80.0
 		var radius := 2.0 + float((i * 11) % 5)
-		var tint := Color(0.12, 0.07, 0.035, 0.32) if i % 3 == 0 else Color(0.82, 0.58, 0.3, 0.18)
+		var tint := Color(0.38, 0.22, 0.09, 0.22) if i % 3 == 0 else Color(1.0, 0.84, 0.48, 0.26)
 		draw_circle(Vector2(x, y), radius, tint)
 
 	for i in range(18):
@@ -255,8 +260,8 @@ func _draw_sand_detail(arena: Rect2) -> void:
 		var angle := -0.2 + sin(i * 2.1) * 0.35
 		var start := Vector2(x, y)
 		var end := start + Vector2.RIGHT.rotated(angle) * length
-		draw_line(start, end, Color(0.16, 0.08, 0.035, 0.24), 3.0)
-		draw_line(start + Vector2(0, 5), end + Vector2(0, 5), Color(0.84, 0.58, 0.3, 0.12), 2.0)
+		draw_line(start, end, Color(0.38, 0.2, 0.075, 0.22), 3.0)
+		draw_line(start + Vector2(0, 5), end + Vector2(0, 5), Color(1.0, 0.82, 0.42, 0.18), 2.0)
 
 	for i in range(10):
 		var x := arena.position.x + float((i * 337) % int(arena.size.x - 260.0)) + 130.0
@@ -281,11 +286,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_J:
 				player.try_weapon_attack()
 			KEY_1:
-				_cast_program("emp_blast")
+				_cast_program("deadeye")
 			KEY_2:
-				_cast_program("chain_lightning")
+				_cast_program("ricochet_shot")
 			KEY_3:
-				_cast_program("time_slow")
+				_cast_program("dust_veil")
+			KEY_4:
+				_cast_program("quickdraw")
 
 func _start_run() -> void:
 	run_complete = false
@@ -314,6 +321,7 @@ func _start_run() -> void:
 	player.dash_used.connect(_on_player_dash)
 	player.weapon_slashed.connect(_on_player_weapon_slashed)
 	player.player_damaged.connect(_on_player_damaged)
+	player.player_parried.connect(_on_player_parried)
 	player.player_down.connect(_on_player_down)
 
 	camera = Camera2D.new()
@@ -349,16 +357,28 @@ func _start_next_wave() -> void:
 
 func _spawn_wave(wave: int) -> void:
 	var total: int = 4 + wave * 2
-	var hunter_count: int = int(mini(wave / 2, 5))
-	var turret_count: int = int(mini(maxi(0, wave - 2) / 3, 4))
-	var drone_count: int = maxi(1, total - hunter_count - turret_count)
+	var duelist_count: int = 1 if wave % 5 == 0 else 0
+	var brute_count: int = int(mini(maxi(0, wave - 2) / 2, 5))
+	var rifleman_count: int = int(mini(maxi(1, wave) / 2, 6))
+	var knife_count: int = maxi(1, total - brute_count - rifleman_count - duelist_count)
+	var spawn_total: int = knife_count + rifleman_count + brute_count + duelist_count
+	var index := 0
 
-	for i in range(drone_count):
-		_spawn_enemy(DroneScene, i, drone_count + hunter_count + turret_count)
-	for i in range(hunter_count):
-		_spawn_enemy(HunterScene, drone_count + i, drone_count + hunter_count + turret_count)
-	for i in range(turret_count):
-		_spawn_enemy(TurretScene, drone_count + hunter_count + i, drone_count + hunter_count + turret_count)
+	if duelist_count > 0:
+		hud.show_duelist_intro("BLACK SASH DUELIST", Color(0.72, 0.08, 0.04))
+
+	for i in range(knife_count):
+		_spawn_enemy(DroneScene, index, spawn_total)
+		index += 1
+	for i in range(rifleman_count):
+		_spawn_enemy(TurretScene, index, spawn_total)
+		index += 1
+	for i in range(brute_count):
+		_spawn_enemy(ShotgunBruteScene, index, spawn_total)
+		index += 1
+	for i in range(duelist_count):
+		_spawn_enemy(DuelistScene, index, spawn_total)
+		index += 1
 
 func _spawn_enemy(enemy_script, index: int, total: int) -> void:
 	var enemy: Node2D = enemy_script.new()
@@ -393,18 +413,28 @@ func _cast_program(program_id: String) -> void:
 	var result: Dictionary = program_system.cast(program_id, player.global_position, enemies)
 	director.add_heat(result["heat"])
 	vfx_layer.program_flash(player.global_position, result["color"])
+	if result.get("effect", "") == "veil":
+		player.apply_dust_veil(result.get("veil_duration", 1.0))
+	if result.get("effect", "") == "quickdraw":
+		player.force_quickdraw()
 
+	var hit_count := 0
 	for enemy in result["hit_enemies"]:
 		if is_instance_valid(enemy):
 			enemy.take_damage(result["damage"])
+			hit_count += 1
 
 	if result["chain_radius"] > 0.0:
 		_trigger_chain_reaction(player.global_position, result["chain_radius"], result["damage"] * 0.7)
+		hit_count += 1
+	if hit_count > 0:
+		hud.flash_hit()
 
 func _trigger_chain_reaction(origin: Vector2, radius: float, damage: float) -> void:
 	for enemy in enemies:
 		if is_instance_valid(enemy) and enemy.global_position.distance_to(origin) <= radius:
 			enemy.take_damage(damage)
+			hud.flash_hit()
 	director.add_heat(0.08)
 
 func _on_player_dash() -> void:
@@ -414,6 +444,7 @@ func _on_player_dash() -> void:
 func _on_player_weapon_slashed(origin: Vector2, direction: Vector2, slash_range: float, arc: float, damage: float) -> void:
 	director.add_heat(0.025)
 	vfx_layer.trail_pop(origin + direction * 62.0, Color(0.86, 0.58, 0.28))
+	var hit_count := 0
 
 	for enemy in enemies:
 		if not is_instance_valid(enemy):
@@ -426,6 +457,9 @@ func _on_player_weapon_slashed(origin: Vector2, direction: Vector2, slash_range:
 			continue
 
 		enemy.take_damage(damage)
+		hit_count += 1
+	if hit_count > 0:
+		hud.flash_hit()
 
 func _on_player_damaged(amount: float) -> void:
 	director.add_heat(0.18)
@@ -433,6 +467,14 @@ func _on_player_damaged(amount: float) -> void:
 	var tween := create_tween()
 	tween.tween_property(camera, "offset", Vector2.ZERO, 0.16)
 	vfx_layer.burst(player.global_position, Color(0.72, 0.08, 0.04), 24)
+
+func _on_player_parried() -> void:
+	director.add_heat(-0.08)
+	camera.offset = Vector2(randf_range(-6.0, 6.0), randf_range(-5.0, 5.0))
+	var tween := create_tween()
+	tween.tween_property(camera, "offset", Vector2.ZERO, 0.1)
+	vfx_layer.shockwave(player.global_position, Color(1.0, 0.9, 0.5))
+	vfx_layer.burst(player.global_position, Color(1.0, 0.82, 0.34), 12)
 
 func _on_player_down() -> void:
 	run_complete = true
@@ -466,6 +508,7 @@ func _configure_input() -> void:
 		"program_1": KEY_1,
 		"program_2": KEY_2,
 		"program_3": KEY_3,
+		"program_4": KEY_4,
 		"ui_left": KEY_A,
 		"ui_right": KEY_D,
 		"ui_up": KEY_W,
