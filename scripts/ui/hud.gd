@@ -249,6 +249,9 @@ func show_run_failed() -> void:
 
 func show_main_menu() -> void:
 	_menu_root.visible = true
+	_menu_root.move_to_front()
+	_set_gameplay_hud_visible(false)
+	_layout_menu()
 	_menu_detail.text = "Choose your loadout, then enter the courtyard."
 	_death_screen.color.a = 0.0
 	_death_label.add_theme_color_override("font_color", Color(0.94, 0.82, 0.64, 0.0))
@@ -256,6 +259,7 @@ func show_main_menu() -> void:
 
 func hide_main_menu() -> void:
 	_menu_root.visible = false
+	_set_gameplay_hud_visible(true)
 
 func show_wave_banner(wave: int) -> void:
 	_wave_banner.text = "WAVE %d" % wave
@@ -330,19 +334,13 @@ func _create_menu() -> void:
 	_menu_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_menu_title.add_theme_font_size_override("font_size", 68)
 	_menu_title.add_theme_color_override("font_color", Color(0.95, 0.78, 0.45))
-	_menu_title.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_menu_title.offset_left = 0.0
-	_menu_title.offset_top = 58.0
-	_menu_title.offset_right = 0.0
-	_menu_title.offset_bottom = 140.0
+	_menu_title.position = Vector2.ZERO
+	_menu_title.size = Vector2(900.0, 86.0)
 	_menu_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_menu_root.add_child(_menu_title)
 
-	_menu_content.set_anchors_preset(Control.PRESET_CENTER)
-	_menu_content.offset_left = -360.0
-	_menu_content.offset_top = -95.0
-	_menu_content.offset_right = 360.0
-	_menu_content.offset_bottom = 145.0
+	_menu_content.position = Vector2.ZERO
+	_menu_content.size = Vector2(720.0, 244.0)
 	_menu_content.add_theme_constant_override("separation", 48)
 	_menu_root.add_child(_menu_content)
 
@@ -382,6 +380,28 @@ func _add_menu_button(text: String, callback: Callable) -> void:
 	button.add_theme_color_override("font_hover_color", Color(1.0, 0.78, 0.36))
 	button.pressed.connect(callback)
 	_menu_panel.add_child(button)
+
+func _layout_menu() -> void:
+	var viewport_size := get_viewport().get_visible_rect().size
+	var title_width := minf(viewport_size.x - 80.0, 900.0)
+	_menu_title.position = Vector2((viewport_size.x - title_width) * 0.5, 58.0)
+	_menu_title.size = Vector2(title_width, 88.0)
+
+	var content_width := minf(viewport_size.x - 96.0, 720.0)
+	var content_height := 244.0
+	_menu_content.position = Vector2((viewport_size.x - content_width) * 0.5, maxf(190.0, viewport_size.y * 0.34))
+	_menu_content.size = Vector2(content_width, content_height)
+	_menu_panel.custom_minimum_size = Vector2(minf(270.0, content_width * 0.42), content_height)
+	_menu_detail.custom_minimum_size = Vector2(maxf(280.0, content_width - _menu_panel.custom_minimum_size.x - 48.0), content_height)
+
+func _set_gameplay_hud_visible(visible_state: bool) -> void:
+	_health_back.visible = visible_state
+	_health_bar.visible = visible_state
+	_alert_label.visible = visible_state
+	_timer_label.visible = visible_state
+	_wave_label.visible = visible_state
+	for icon in _skill_icons:
+		icon.visible = visible_state
 
 func _create_skill_icons() -> void:
 	var ids := ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
