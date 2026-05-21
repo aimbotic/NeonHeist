@@ -423,15 +423,17 @@ func _start_next_wave() -> void:
 func _spawn_wave(wave: int) -> void:
 	var total: int = 4 + wave * 2
 	var duelist_count: int = 1 if wave % 3 == 0 else 0
+	if duelist_count > 0:
+		hud.show_duelist_intro("BLACK SASH DUELIST", Color(0.72, 0.08, 0.04))
+		_spawn_enemy(DuelistScene, 0, 1)
+		return
+
 	var post_boss_pressure: int = maxi(0, wave - 3) + duelists_defeated * 2
 	var brute_count: int = int(mini(maxi(0, wave - 2 + post_boss_pressure) / 2, 7))
 	var rifleman_count: int = int(mini(maxi(1, wave + post_boss_pressure) / 2, 8))
 	var knife_count: int = maxi(1, total - brute_count - rifleman_count - duelist_count)
 	var spawn_total: int = knife_count + rifleman_count + brute_count + duelist_count
 	var index := 0
-
-	if duelist_count > 0:
-		hud.show_duelist_intro("BLACK SASH DUELIST", Color(0.72, 0.08, 0.04))
 
 	for i in range(knife_count):
 		_spawn_enemy(DroneScene, index, spawn_total)
@@ -478,7 +480,7 @@ func _cast_program(program_id: String) -> void:
 	if not program_system.can_cast(program_id):
 		return
 
-	var result: Dictionary = program_system.cast(program_id, player.global_position, player.get_aim_direction(), enemies)
+	var result: Dictionary = program_system.cast(program_id, player.global_position, _get_mouse_aim_direction(), enemies)
 	director.add_heat(result["heat"])
 	vfx_layer.skill_flash(player.global_position, result["color"])
 	if result.get("shot_from", Vector2.ZERO) != result.get("shot_to", Vector2.ZERO):
@@ -587,6 +589,12 @@ func _cast_equipped_program(slot: int) -> void:
 	if program_id == "":
 		return
 	_cast_program(program_id)
+
+func _get_mouse_aim_direction() -> Vector2:
+	var aim: Vector2 = player.global_position.direction_to(get_global_mouse_position())
+	if aim.length_squared() <= 0.001:
+		return player.get_aim_direction()
+	return aim
 
 func _on_ability_loadout_changed(equipped_ids: Array[String]) -> void:
 	program_system.set_equipped(equipped_ids)

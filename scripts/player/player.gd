@@ -7,9 +7,9 @@ signal player_down
 signal player_parried
 signal weapon_slashed(origin: Vector2, direction: Vector2, slash_range: float, arc: float, damage: float)
 
-var max_speed := 420.0
-var acceleration := 2600.0
-var dash_speed := 1180.0
+var max_speed := 630.0
+var acceleration := 3900.0
+var dash_speed := 1770.0
 var dash_duration := 0.13
 var dash_cooldown := 0.9
 var weapon_range := 92.0
@@ -18,7 +18,7 @@ var weapon_damage := 50.0
 var weapon_windup_time := 0.0
 var weapon_active_time := 0.09
 var weapon_recovery_time := 0.22
-var weapon_cooldown := 0.25
+var weapon_cooldown := 0.0
 var weapon_sheathe_delay := 0.45
 var weapon_parry_time := 0.08
 var max_health := 1.0
@@ -116,8 +116,6 @@ func force_lunge() -> void:
 	dash_used.emit()
 
 func try_weapon_attack() -> void:
-	if _weapon_cooldown_remaining > 0.0:
-		return
 	force_quickdraw()
 
 func force_quickdraw() -> void:
@@ -157,21 +155,21 @@ func apply_weapon_profile(profile_id: String) -> void:
 			weapon_arc = 2.55
 			weapon_damage = 58.0
 			weapon_active_time = 0.08
-			weapon_cooldown = 0.22
+			weapon_cooldown = 0.0
 			weapon_parry_time = 0.1
 		"grave_saber":
 			weapon_range = 118.0
 			weapon_arc = 2.7
 			weapon_damage = 68.0
 			weapon_active_time = 0.08
-			weapon_cooldown = 0.24
+			weapon_cooldown = 0.0
 			weapon_parry_time = 0.11
 		_:
 			weapon_range = 92.0
 			weapon_arc = 2.35
 			weapon_damage = 50.0
 			weapon_active_time = 0.09
-			weapon_cooldown = 0.25
+			weapon_cooldown = 0.0
 			weapon_parry_time = 0.08
 	queue_redraw()
 
