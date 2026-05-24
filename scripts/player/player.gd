@@ -12,8 +12,8 @@ var acceleration := 3900.0
 var dash_speed := 1770.0
 var dash_duration := 0.13
 var dash_cooldown := 0.9
-var weapon_range := 92.0
-var weapon_arc := 2.35
+var weapon_range := 126.0
+var weapon_arc := 2.55
 var weapon_damage := 50.0
 var weapon_windup_time := 0.0
 var weapon_active_time := 0.09
@@ -21,8 +21,8 @@ var weapon_recovery_time := 0.22
 var weapon_cooldown := 0.0
 var weapon_sheathe_delay := 0.45
 var weapon_parry_time := 0.08
-var max_health := 1.0
-var health := 1.0
+var max_health := 3.0
+var health := 3.0
 var invulnerable := false
 
 const PLAYER_RADIUS := 22.0
@@ -138,7 +138,7 @@ func take_damage(amount: float) -> void:
 		player_parried.emit()
 		queue_redraw()
 		return
-	health = max(0.0, health - amount)
+	health = max(0.0, health - 1.0)
 	player_damaged.emit(amount)
 	if health <= 0.0:
 		player_down.emit()
@@ -151,22 +151,22 @@ func apply_dust_veil(duration: float) -> void:
 func apply_weapon_profile(profile_id: String) -> void:
 	match profile_id:
 		"black_sash_saber":
-			weapon_range = 108.0
-			weapon_arc = 2.55
+			weapon_range = 146.0
+			weapon_arc = 2.75
 			weapon_damage = 58.0
 			weapon_active_time = 0.08
 			weapon_cooldown = 0.0
 			weapon_parry_time = 0.1
 		"grave_saber":
-			weapon_range = 118.0
-			weapon_arc = 2.7
+			weapon_range = 160.0
+			weapon_arc = 2.9
 			weapon_damage = 68.0
 			weapon_active_time = 0.08
 			weapon_cooldown = 0.0
 			weapon_parry_time = 0.11
 		_:
-			weapon_range = 92.0
-			weapon_arc = 2.35
+			weapon_range = 126.0
+			weapon_arc = 2.55
 			weapon_damage = 50.0
 			weapon_active_time = 0.09
 			weapon_cooldown = 0.0
@@ -273,9 +273,31 @@ func _draw_character() -> void:
 	draw_line(hips + Vector2(5.0, 0.0), right_foot, Color(0.58, 0.07, 0.035, 0.95), 6.0)
 	draw_line(left_foot + Vector2(-3.0, 0.0), left_foot + Vector2(6.0, 0.0), Color(0.015, 0.012, 0.01, 1.0), 4.0)
 	draw_line(right_foot + Vector2(-4.0, 0.0), right_foot + Vector2(6.0, 0.0), Color(0.015, 0.012, 0.01, 1.0), 4.0)
-	draw_circle(head, 8.0, Color(0.9, 0.88, 0.8, 0.98))
-	draw_arc(head, 10.0, -PI * 0.15, PI * 1.15, 14, Color(0.012, 0.01, 0.009, 0.98), 5.0)
-	draw_line(head + Vector2(-8.0, 2.0) + facing * 2.0, head + Vector2(8.0, 2.0) + facing * 2.0, Color(0.0, 0.0, 0.0, 0.98), 5.0)
+	draw_circle(head, 8.0, Color(0.54, 0.43, 0.34, 0.55))
+	var hat_brim := PackedVector2Array([
+		head + Vector2(-32.0, -4.0) + facing * 3.0,
+		head + Vector2(-21.0, -12.0) + facing * 4.0,
+		head + Vector2(-7.0, -15.0) + facing * 5.0,
+		head + Vector2(10.0, -15.0) + facing * 5.0,
+		head + Vector2(25.0, -11.0) + facing * 4.0,
+		head + Vector2(34.0, -2.0) + facing * 3.0,
+		head + Vector2(20.0, 5.0) + facing * 4.0,
+		head + Vector2(3.0, 8.0) + facing * 4.0,
+		head + Vector2(-16.0, 6.0) + facing * 4.0,
+	])
+	var hat_crown := PackedVector2Array([
+		head + Vector2(-15.0, -11.0) + facing * 4.0,
+		head + Vector2(-10.0, -30.0) + facing * 3.0,
+		head + Vector2(0.0, -35.0) + facing * 2.0,
+		head + Vector2(12.0, -31.0) + facing * 3.0,
+		head + Vector2(17.0, -11.0) + facing * 4.0,
+	])
+	draw_colored_polygon(hat_brim, Color(0.055, 0.032, 0.018, 1.0))
+	draw_polyline(PackedVector2Array([hat_brim[0], hat_brim[1], hat_brim[2], hat_brim[3], hat_brim[4], hat_brim[5], hat_brim[6], hat_brim[7], hat_brim[8], hat_brim[0]]), Color(0.34, 0.19, 0.08, 0.92), 2.0)
+	draw_colored_polygon(hat_crown, Color(0.075, 0.045, 0.026, 1.0))
+	draw_polyline(PackedVector2Array([hat_crown[0], hat_crown[1], hat_crown[2], hat_crown[3], hat_crown[4]]), Color(0.42, 0.25, 0.11, 0.82), 2.0)
+	draw_line(head + Vector2(-17.0, -10.0) + facing * 4.0, head + Vector2(17.0, -10.0) + facing * 4.0, Color(0.015, 0.01, 0.008, 1.0), 5.0)
+	draw_line(head + Vector2(-23.0, 2.0) + facing * 4.0, head + Vector2(23.0, 2.0) + facing * 4.0, Color(0.0, 0.0, 0.0, 0.98), 9.0)
 	draw_line(left_hand, left_hand + facing * 26.0 + Vector2(-8.0, 10.0), Color(0.72, 0.73, 0.68, 0.94), 3.0)
 	draw_line(left_hand + facing * 26.0 + Vector2(-8.0, 10.0), left_hand + facing * 34.0 + Vector2(-10.0, 14.0), Color(0.94, 0.9, 0.74, 0.9), 2.0)
 	draw_circle(saber_hand, 4.0, Color(0.76, 0.58, 0.42, 0.98))

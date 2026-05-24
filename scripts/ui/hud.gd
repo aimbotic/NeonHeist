@@ -118,19 +118,20 @@ var _ability_names := {
 	"ghost_step": "Ghost Step",
 }
 var _ability_descriptions := {
-	"deadeye": "Long-range crosshair shot for picking off riflemen.",
-	"ricochet_shot": "Bouncing bullet that punishes packed enemies.",
-	"dust_veil": "Wind and sand burst that buys breathing room.",
-	"quickdraw": "Fast revolver skillshot for a clean opening strike.",
-	"duelist_lunge": "Boss quickdraw dash stolen from defeated duelists.",
-	"fan_hammer": "Rapid revolver fan-fire earned from impossible wave work.",
-	"ghost_step": "A dust-cloak sidestep for surviving ugly odds.",
+	"deadeye": "Long-range precision shot.",
+	"ricochet_shot": "Bouncing crowd-control shot.",
+	"dust_veil": "Brief sand-cloak survival burst.",
+	"quickdraw": "Fast revolver skillshot.",
+	"duelist_lunge": "Boss dash into a saber strike.",
+	"fan_hammer": "Rapid fan-fire blast.",
+	"ghost_step": "Longer dust-cloak sidestep.",
 }
 var _unlocked_abilities: Array[String] = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
 var _equipped_abilities: Array[String] = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
 var _quest_data: Array[Dictionary] = []
 var _health_bar := ColorRect.new()
 var _health_back := ColorRect.new()
+var _heart_label := Label.new()
 var _alert_label := Label.new()
 var _timer_label := Label.new()
 var _wave_label := Label.new()
@@ -164,10 +165,12 @@ func _ready() -> void:
 	_health_bar.position = _health_back.position
 	_health_bar.size = _health_back.size
 	_root.add_child(_health_bar)
+	_configure_label(_heart_label, Vector2(28, 50), 22)
+	_heart_label.add_theme_color_override("font_color", Color(0.94, 0.16, 0.08))
 
-	_configure_label(_alert_label, Vector2(28, 56), 18)
-	_configure_label(_timer_label, Vector2(28, 82), 18)
-	_configure_label(_wave_label, Vector2(28, 108), 18)
+	_configure_label(_alert_label, Vector2(28, 78), 18)
+	_configure_label(_timer_label, Vector2(28, 104), 18)
+	_configure_label(_wave_label, Vector2(28, 130), 18)
 	_create_skill_icons()
 
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -267,6 +270,7 @@ func update_run(player, director, program_system, wave: int, enemies_remaining: 
 	var health_fraction: float = clamp(player.health / player.max_health, 0.0, 1.0)
 	_health_bar.size.x = 260.0 * health_fraction
 	_health_bar.color = Color(0.72, 0.08, 0.04) if health_fraction < 0.34 else Color(0.72, 0.42, 0.18)
+	_heart_label.text = _format_hearts(int(ceil(player.health)), int(player.max_health))
 
 	_alert_label.text = "DANGER %d  %02d%%" % [director.alert_level, int(director.alert_meter * 100.0)]
 	_timer_label.text = "TIME %02d:%02d" % [int(_elapsed / 60.0), int(_elapsed) % 60]
@@ -469,13 +473,13 @@ func _add_menu_button(text: String, callback: Callable) -> void:
 
 func _create_abilities_panel() -> void:
 	_abilities_panel.visible = false
-	_abilities_panel.custom_minimum_size = Vector2(440, 308)
-	_abilities_panel.add_theme_constant_override("separation", 12)
+	_abilities_panel.custom_minimum_size = Vector2(520, 384)
+	_abilities_panel.add_theme_constant_override("separation", 8)
 	_menu_content.add_child(_abilities_panel)
 
 	var title := Label.new()
-	title.text = "ABILITIES"
-	title.add_theme_font_size_override("font_size", 26)
+	title.text = "ABILITIES  CLICK TO EQUIP"
+	title.add_theme_font_size_override("font_size", 22)
 	title.add_theme_color_override("font_color", Color(1.0, 0.78, 0.36))
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_abilities_panel.add_child(title)
@@ -483,7 +487,7 @@ func _create_abilities_panel() -> void:
 	for ability_id in _ability_ids:
 		var button := Button.new()
 		button.flat = true
-		button.custom_minimum_size = Vector2(420, 58)
+		button.custom_minimum_size = Vector2(500, 58)
 		button.pressed.connect(func() -> void:
 			_toggle_ability(ability_id)
 		)
@@ -491,8 +495,8 @@ func _create_abilities_panel() -> void:
 		_abilities_panel.add_child(button)
 
 		var row := HBoxContainer.new()
-		row.custom_minimum_size = Vector2(420, 58)
-		row.add_theme_constant_override("separation", 14)
+		row.custom_minimum_size = Vector2(500, 58)
+		row.add_theme_constant_override("separation", 12)
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(row)
 
@@ -506,9 +510,9 @@ func _create_abilities_panel() -> void:
 
 		var copy := Label.new()
 		copy.text = ""
-		copy.custom_minimum_size = Vector2(330, 54)
+		copy.custom_minimum_size = Vector2(430, 54)
 		copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		copy.add_theme_font_size_override("font_size", 16)
+		copy.add_theme_font_size_override("font_size", 14)
 		copy.add_theme_color_override("font_color", Color(0.98, 0.9, 0.76))
 		copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(copy)
@@ -552,13 +556,13 @@ func _refresh_ability_buttons() -> void:
 		var unlocked := _unlocked_abilities.has(ability_id)
 		var equipped_index := _equipped_abilities.find(ability_id)
 		var key_label := str(equipped_index + 1) if equipped_index >= 0 else ""
-		var prefix := "[%s] " % key_label if equipped_index >= 0 else ""
-		var lock_text := "" if unlocked else "LOCKED - Complete quests or defeat bosses"
-		label.text = "%s%s\n%s%s" % [
-			prefix,
+		var status := "SLOT %s" % key_label if equipped_index >= 0 else "READY"
+		if not unlocked:
+			status = "LOCKED"
+		label.text = "%s  -  %s\n%s" % [
 			_ability_names[ability_id],
+			status,
 			_ability_descriptions[ability_id],
-			"\n" + lock_text if not unlocked else "",
 		]
 		label.modulate = Color(1.0, 1.0, 1.0, 1.0) if unlocked else Color(0.55, 0.48, 0.42, 0.82)
 		icon.modulate = Color(1.0, 1.0, 1.0, 1.0) if unlocked else Color(0.4, 0.36, 0.32, 0.72)
@@ -620,11 +624,11 @@ func _layout_menu() -> void:
 	_menu_title.position = Vector2((viewport_size.x - title_width) * 0.5, 58.0)
 	_menu_title.size = Vector2(title_width, 88.0)
 
-	var content_width := minf(viewport_size.x - 96.0, 800.0)
-	var content_height := 384.0
+	var content_width := minf(viewport_size.x - 96.0, 920.0)
+	var content_height := 500.0
 	_menu_content.position = Vector2((viewport_size.x - content_width) * 0.5, maxf(190.0, viewport_size.y * 0.34))
 	_menu_content.size = Vector2(content_width, content_height)
-	_menu_panel.custom_minimum_size = Vector2(minf(270.0, content_width * 0.42), content_height)
+	_menu_panel.custom_minimum_size = Vector2(minf(270.0, content_width * 0.34), content_height)
 	_menu_detail.custom_minimum_size = Vector2(maxf(280.0, content_width - _menu_panel.custom_minimum_size.x - 48.0), content_height)
 	_abilities_panel.custom_minimum_size = _menu_detail.custom_minimum_size
 	_quests_panel.custom_minimum_size = _menu_detail.custom_minimum_size
@@ -632,6 +636,7 @@ func _layout_menu() -> void:
 func _set_gameplay_hud_visible(visible_state: bool) -> void:
 	_health_back.visible = visible_state
 	_health_bar.visible = visible_state
+	_heart_label.visible = visible_state
 	_alert_label.visible = visible_state
 	_timer_label.visible = visible_state
 	_wave_label.visible = visible_state
@@ -642,12 +647,18 @@ func _create_skill_icons() -> void:
 	var ids := ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
 	for i in range(ids.size()):
 		var icon := SkillIcon.new()
-		icon.position = Vector2(28.0 + i * 66.0, 142.0)
+		icon.position = Vector2(28.0 + i * 66.0, 164.0)
 		icon.size = Vector2(54.0, 54.0)
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		icon.set_state(ids[i], str(i + 1), 0.0)
 		_skill_icons.append(icon)
 		_root.add_child(icon)
+
+func _format_hearts(current: int, maximum: int) -> String:
+	var text := ""
+	for i in range(maximum):
+		text += "♥" if i < current else "♡"
+	return text
 
 func _update_skill_icons(program_system) -> void:
 	var summary: Array[Dictionary] = program_system.get_equipped_summary()

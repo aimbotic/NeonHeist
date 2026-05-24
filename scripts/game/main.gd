@@ -13,6 +13,14 @@ const VfxLayerScene := preload("res://scripts/systems/vfx_layer.gd")
 const HudScene := preload("res://scripts/ui/hud.gd")
 const VaultGeneratorScene := preload("res://scripts/game/vault_generator.gd")
 
+class StaticBackdropCache extends Node2D:
+	var owner_main: Node2D
+
+	func _draw() -> void:
+		if owner_main == null or owner_main.vault_data.is_empty():
+			return
+		owner_main._draw_dark_western_backdrop()
+
 const QUEST_DEFINITIONS := [
 	{
 		"id": "blood_noon",
@@ -54,6 +62,7 @@ var save_system
 var vfx_layer
 var hud
 var camera: Camera2D
+var backdrop_cache := StaticBackdropCache.new()
 var enemy_root := Node2D.new()
 var enemies: Array[Node2D] = []
 var run_complete := false
@@ -88,6 +97,10 @@ func _ready() -> void:
 	vfx_layer = VfxLayerScene.new()
 	add_child(vfx_layer)
 
+	backdrop_cache.owner_main = self
+	backdrop_cache.z_index = -100
+	add_child(backdrop_cache)
+
 	hud = HudScene.new()
 	add_child(hud)
 	hud.play_requested.connect(_on_menu_play_requested)
@@ -111,8 +124,6 @@ func _physics_process(delta: float) -> void:
 func _draw() -> void:
 	if vault_data.is_empty():
 		return
-
-	_draw_dark_western_backdrop()
 
 	var arena: Rect2 = vault_data["arena"]
 	draw_rect(arena, Color(0.78, 0.55, 0.24, 0.98), true)
@@ -376,6 +387,7 @@ func _start_run() -> void:
 	var generator: RefCounted = VaultGeneratorScene.new()
 	var seed_value := int(Time.get_unix_time_from_system()) + randi()
 	vault_data = generator.generate(seed_value)
+	backdrop_cache.queue_redraw()
 
 	player = PlayerScene.new()
 	add_child(player)
@@ -525,16 +537,35 @@ func _on_player_weapon_slashed(origin: Vector2, direction: Vector2, slash_range:
 		if not is_instance_valid(enemy):
 			continue
 
-		var to_enemy: Vector2 = enemy.global_position - origin
-		if to_enemy.length() > slash_range:
-			continue
-		if abs(direction.angle_to(to_enemy.normalized())) > arc * 0.5:
-			continue
-
-		enemy.take_damage(damage)
-		hit_count += 1
+		if _sword_sweep_hits_enemy(origin, direction, slash_range, arc, enemy.global_position):
+			enemy.take_damage(damage)
+			hit_count += 1
 	if hit_count > 0:
 		hud.flash_hit()
+
+func _sword_sweep_hits_enemy(origin: Vector2, direction: Vector2, slash_range: float, arc: float, enemy_position: Vector2) -> bool:
+	var enemy_radius := 34.0
+	var blade_base := 31.0
+	var blade_tip := slash_range + 18.0
+	var blade_width := 28.0
+	var base_angle := direction.angle()
+	var samples := 17
+	for i in range(samples):
+		var t := 0.0 if samples <= 1 else float(i) / float(samples - 1)
+		var slash_direction := Vector2.RIGHT.rotated(lerpf(base_angle - arc * 0.5, base_angle + arc * 0.5, t))
+		var segment_start := origin + slash_direction * blade_base
+		var segment_end := origin + slash_direction * blade_tip
+		if _distance_to_segment(enemy_position, segment_start, segment_end) <= enemy_radius + blade_width:
+			return true
+	return false
+
+func _distance_to_segment(point: Vector2, start: Vector2, end: Vector2) -> float:
+	var segment := end - start
+	var length_squared := segment.length_squared()
+	if length_squared <= 0.001:
+		return point.distance_to(start)
+	var t := clampf((point - start).dot(segment) / length_squared, 0.0, 1.0)
+	return point.distance_to(start + segment * t)
 
 func _on_player_damaged(amount: float) -> void:
 	director.add_heat(0.18)

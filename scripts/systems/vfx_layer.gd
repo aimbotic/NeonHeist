@@ -4,6 +4,7 @@ extends Node2D
 var _pulses: Array[Dictionary] = []
 var _beams: Array[Dictionary] = []
 var _blood_stains: Array[Dictionary] = []
+const MAX_BLOOD_STAINS := 15
 
 func _process(delta: float) -> void:
 	for pulse in _pulses:
@@ -60,7 +61,7 @@ func blood_spill(origin: Vector2, amount: int = 9) -> void:
 		"color": Color(0.24, 0.006, 0.004, 0.72),
 		"drops": drops,
 	})
-	if _blood_stains.size() > 90:
+	while _blood_stains.size() > MAX_BLOOD_STAINS:
 		_blood_stains.pop_front()
 
 func shockwave(origin: Vector2, color: Color) -> void:
