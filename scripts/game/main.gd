@@ -52,6 +52,76 @@ const QUEST_DEFINITIONS := [
 		"reward_id": "grave_saber",
 		"reward": "Grave Saber weapon",
 	},
+	{
+		"id": "sandstorm_trial",
+		"name": "SANDSTORM TRIAL",
+		"description": "Reach wave 10 in a single run.",
+		"type": "wave",
+		"target": 10,
+		"reward_type": "blade",
+		"reward_id": "sandstorm_saber",
+		"reward": "Sandstorm Saber weapon",
+	},
+	{
+		"id": "red_canyon_oath",
+		"name": "RED CANYON OATH",
+		"description": "Defeat 8 duelist bosses across runs.",
+		"type": "boss",
+		"target": 8,
+		"reward_type": "blade",
+		"reward_id": "red_canyon_saber",
+		"reward": "Red Canyon Saber weapon",
+	},
+	{
+		"id": "last_sunrise",
+		"name": "LAST SUNRISE",
+		"description": "Kill 250 enemies across runs.",
+		"type": "kill",
+		"target": 250,
+		"reward_type": "blade",
+		"reward_id": "sunrise_saber",
+		"reward": "Sunrise Saber weapon",
+	},
+	{
+		"id": "iron_sights",
+		"name": "IRON SIGHTS",
+		"description": "Kill 40 enemies across runs.",
+		"type": "kill",
+		"target": 40,
+		"reward_type": "gun",
+		"reward_id": "long_rifle",
+		"reward": "Long Rifle weapon",
+	},
+	{
+		"id": "close_call",
+		"name": "CLOSE CALL",
+		"description": "Reach wave 8 in a single run.",
+		"type": "wave",
+		"target": 8,
+		"reward_type": "gun",
+		"reward_id": "sawed_off",
+		"reward": "Sawed-Off weapon",
+	},
+	{
+		"id": "fast_hands",
+		"name": "FAST HANDS",
+		"description": "Defeat 5 duelist bosses across runs.",
+		"type": "boss",
+		"target": 5,
+		"reward_type": "gun",
+		"reward_id": "pepperbox",
+		"reward": "Pepperbox weapon",
+	},
+	{
+		"id": "gold_rush",
+		"name": "GOLD RUSH",
+		"description": "Kill 400 enemies across runs.",
+		"type": "kill",
+		"target": 400,
+		"reward_type": "gun",
+		"reward_id": "golden_revolver",
+		"reward": "Golden Revolver weapon",
+	},
 ]
 
 var vault_data: Dictionary
@@ -74,6 +144,8 @@ var duelists_defeated := 0
 var menu_open := true
 var unlocked_blades: Array[String] = ["saber"]
 var equipped_blade := "saber"
+var unlocked_guns: Array[String] = ["revolver"]
+var equipped_gun := "revolver"
 
 func _ready() -> void:
 	_configure_input()
@@ -93,6 +165,9 @@ func _ready() -> void:
 	program_system.load_progress(save_system.data["unlocked_abilities"], save_system.data["equipped_abilities"])
 	unlocked_blades = _to_string_array(save_system.data["unlocked_blades"])
 	equipped_blade = str(save_system.data["equipped_blade"])
+	unlocked_guns = _to_string_array(save_system.data["unlocked_guns"])
+	equipped_gun = str(save_system.data["equipped_gun"])
+	program_system.set_equipped_gun(equipped_gun)
 
 	vfx_layer = VfxLayerScene.new()
 	add_child(vfx_layer)
@@ -105,7 +180,9 @@ func _ready() -> void:
 	add_child(hud)
 	hud.play_requested.connect(_on_menu_play_requested)
 	hud.ability_loadout_changed.connect(_on_ability_loadout_changed)
+	hud.gun_loadout_changed.connect(_on_gun_loadout_changed)
 	hud.set_ability_loadout_data(program_system.get_unlocked_ids(), program_system.equipped)
+	hud.set_gun_loadout_data(unlocked_guns, equipped_gun)
 	_refresh_quest_screen()
 
 	add_child(enemy_root)
@@ -632,6 +709,14 @@ func _on_ability_loadout_changed(equipped_ids: Array[String]) -> void:
 	save_system.set_equipped_abilities(program_system.equipped)
 	hud.set_ability_loadout_data(program_system.get_unlocked_ids(), program_system.equipped)
 
+func _on_gun_loadout_changed(gun_id: String) -> void:
+	if not unlocked_guns.has(gun_id):
+		return
+	equipped_gun = gun_id
+	program_system.set_equipped_gun(equipped_gun)
+	save_system.set_equipped_gun(equipped_gun)
+	hud.set_gun_loadout_data(unlocked_guns, equipped_gun)
+
 func _record_wave_progress(wave: int) -> void:
 	for quest in QUEST_DEFINITIONS:
 		if quest["type"] == "wave":
@@ -666,6 +751,14 @@ func _try_complete_quest(quest: Dictionary, progress: int) -> void:
 			save_system.set_equipped_blade(equipped_blade)
 			if player != null:
 				player.apply_weapon_profile(equipped_blade)
+	elif quest["reward_type"] == "gun":
+		if not unlocked_guns.has(reward_id):
+			unlocked_guns.append(reward_id)
+			equipped_gun = reward_id
+			save_system.unlock_gun(reward_id)
+			save_system.set_equipped_gun(equipped_gun)
+			program_system.set_equipped_gun(equipped_gun)
+			hud.set_gun_loadout_data(unlocked_guns, equipped_gun)
 	hud.show_unlock("%s COMPLETE - %s UNLOCKED" % [str(quest["name"]), reward_name.to_upper()])
 
 func _refresh_quest_screen() -> void:

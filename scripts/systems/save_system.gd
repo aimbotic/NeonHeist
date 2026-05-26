@@ -13,6 +13,8 @@ var data := {
 	"equipped_abilities": ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"],
 	"unlocked_blades": ["saber"],
 	"equipped_blade": "saber",
+	"unlocked_guns": ["revolver"],
+	"equipped_gun": "revolver",
 }
 
 func _ready() -> void:
@@ -63,12 +65,24 @@ func unlock_blade(blade_id: String) -> void:
 	data["unlocked_blades"] = unlocked
 	save_game()
 
+func unlock_gun(gun_id: String) -> void:
+	_ensure_defaults()
+	var unlocked: Array = data["unlocked_guns"]
+	if not unlocked.has(gun_id):
+		unlocked.append(gun_id)
+	data["unlocked_guns"] = unlocked
+	save_game()
+
 func set_equipped_abilities(equipped_ids: Array[String]) -> void:
 	data["equipped_abilities"] = equipped_ids.duplicate()
 	save_game()
 
 func set_equipped_blade(blade_id: String) -> void:
 	data["equipped_blade"] = blade_id
+	save_game()
+
+func set_equipped_gun(gun_id: String) -> void:
+	data["equipped_gun"] = gun_id
 	save_game()
 
 func save_game() -> void:
@@ -99,6 +113,8 @@ func _ensure_defaults() -> void:
 		"equipped_abilities": ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"],
 		"unlocked_blades": ["saber"],
 		"equipped_blade": "saber",
+		"unlocked_guns": ["revolver"],
+		"equipped_gun": "revolver",
 	}
 	for key in defaults.keys():
 		if not data.has(key):

@@ -164,6 +164,27 @@ func apply_weapon_profile(profile_id: String) -> void:
 			weapon_active_time = 0.08
 			weapon_cooldown = 0.0
 			weapon_parry_time = 0.11
+		"sandstorm_saber":
+			weapon_range = 154.0
+			weapon_arc = 3.05
+			weapon_damage = 62.0
+			weapon_active_time = 0.085
+			weapon_cooldown = 0.0
+			weapon_parry_time = 0.13
+		"red_canyon_saber":
+			weapon_range = 170.0
+			weapon_arc = 2.65
+			weapon_damage = 78.0
+			weapon_active_time = 0.075
+			weapon_cooldown = 0.0
+			weapon_parry_time = 0.1
+		"sunrise_saber":
+			weapon_range = 178.0
+			weapon_arc = 3.1
+			weapon_damage = 84.0
+			weapon_active_time = 0.075
+			weapon_cooldown = 0.0
+			weapon_parry_time = 0.14
 		_:
 			weapon_range = 126.0
 			weapon_arc = 2.55

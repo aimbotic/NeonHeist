@@ -3,6 +3,7 @@ extends CanvasLayer
 
 signal play_requested
 signal ability_loadout_changed(equipped_ids: Array[String])
+signal gun_loadout_changed(gun_id: String)
 
 class SkillIcon extends Control:
 	var skill_id := ""
@@ -97,12 +98,13 @@ class SkillIcon extends Control:
 
 class InfoCard extends PanelContainer:
 	func configure(title: String, category: String, body: String, footer: String = "", accent: Color = Color(0.82, 0.46, 0.18)) -> void:
+		var locked := category == "LOCKED"
 		custom_minimum_size = Vector2(260.0, 190.0)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 		var panel := StyleBoxFlat.new()
-		panel.bg_color = Color(0.94, 0.78, 0.48, 0.96)
-		panel.border_color = Color(0.11, 0.052, 0.024, 1.0)
+		panel.bg_color = Color(0.46, 0.36, 0.24, 0.9) if locked else Color(0.94, 0.78, 0.48, 0.96)
+		panel.border_color = Color(0.24, 0.2, 0.16, 1.0) if locked else Color(0.11, 0.052, 0.024, 1.0)
 		panel.border_width_left = 4
 		panel.border_width_top = 4
 		panel.border_width_right = 4
@@ -132,7 +134,7 @@ class InfoCard extends PanelContainer:
 		title_label.text = title
 		title_label.custom_minimum_size = Vector2(166.0, 30.0)
 		title_label.add_theme_font_size_override("font_size", 23)
-		title_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		title_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018) if not locked else Color(0.13, 0.1, 0.075))
 		title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		top_row.add_child(title_label)
 
@@ -141,13 +143,13 @@ class InfoCard extends PanelContainer:
 		category_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		category_label.custom_minimum_size = Vector2(56.0, 26.0)
 		category_label.add_theme_font_size_override("font_size", 13)
-		category_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		category_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018) if not locked else Color(0.13, 0.1, 0.075))
 		category_label.add_theme_color_override("font_outline_color", accent.darkened(0.25))
 		category_label.add_theme_constant_override("outline_size", 0)
 		top_row.add_child(category_label)
 
 		var art := ColorRect.new()
-		art.color = accent
+		art.color = Color(0.24, 0.2, 0.16, 0.95) if locked else accent
 		art.custom_minimum_size = Vector2(236.0, 12.0)
 		stack.add_child(art)
 
@@ -156,7 +158,7 @@ class InfoCard extends PanelContainer:
 		body_label.custom_minimum_size = Vector2(236.0, 94.0)
 		body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		body_label.add_theme_font_size_override("font_size", 18)
-		body_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		body_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018) if not locked else Color(0.13, 0.1, 0.075))
 		stack.add_child(body_label)
 
 		if footer != "":
@@ -164,7 +166,7 @@ class InfoCard extends PanelContainer:
 			footer_label.text = footer
 			footer_label.custom_minimum_size = Vector2(236.0, 24.0)
 			footer_label.add_theme_font_size_override("font_size", 14)
-			footer_label.add_theme_color_override("font_color", Color(0.24, 0.11, 0.045))
+			footer_label.add_theme_color_override("font_color", Color(0.24, 0.11, 0.045) if not locked else Color(0.16, 0.12, 0.08))
 			footer_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			stack.add_child(footer_label)
 
@@ -175,11 +177,38 @@ var _menu_panel := VBoxContainer.new()
 var _menu_content := HBoxContainer.new()
 var _cards_scroll := ScrollContainer.new()
 var _cards_grid := GridContainer.new()
+var _guns_panel := VBoxContainer.new()
+var _guns_grid := GridContainer.new()
 var _abilities_panel := VBoxContainer.new()
 var _abilities_grid := GridContainer.new()
 var _quests_panel := VBoxContainer.new()
+var _gun_buttons: Dictionary = {}
 var _ability_buttons: Dictionary = {}
 var _quest_labels: Dictionary = {}
+var _gun_ids: Array[String] = ["revolver", "long_rifle", "sawed_off", "pepperbox", "golden_revolver"]
+var _gun_names := {
+	"revolver": "Revolver",
+	"long_rifle": "Long Rifle",
+	"sawed_off": "Sawed-Off",
+	"pepperbox": "Pepperbox",
+	"golden_revolver": "Golden Revolver",
+}
+var _gun_descriptions := {
+	"revolver": "Balanced sidearm for every shot.",
+	"long_rifle": "Longer range and higher damage.",
+	"sawed_off": "Wide close-range blast style.",
+	"pepperbox": "Fast cooldowns, lighter hits.",
+	"golden_revolver": "Endgame damage and control.",
+}
+var _gun_unlocks := {
+	"revolver": "Starter gun",
+	"long_rifle": "Unlock: kill 40 enemies",
+	"sawed_off": "Unlock: reach wave 8",
+	"pepperbox": "Unlock: defeat 5 duelists",
+	"golden_revolver": "Unlock: kill 400 enemies",
+}
+var _unlocked_guns: Array[String] = ["revolver"]
+var _equipped_gun := "revolver"
 var _ability_ids: Array[String] = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw", "duelist_lunge", "fan_hammer", "ghost_step"]
 var _ability_names := {
 	"deadeye": "Deadeye",
@@ -408,6 +437,11 @@ func set_ability_loadout_data(unlocked_ids: Array[String], equipped_ids: Array[S
 	_equipped_abilities = equipped_ids.duplicate()
 	_refresh_ability_buttons()
 
+func set_gun_loadout_data(unlocked_ids: Array[String], equipped_id: String) -> void:
+	_unlocked_guns = unlocked_ids.duplicate()
+	_equipped_gun = equipped_id
+	_refresh_gun_buttons()
+
 func set_quest_data(quests: Array[Dictionary]) -> void:
 	_quest_data = quests.duplicate(true)
 	_refresh_quest_panel()
@@ -511,7 +545,7 @@ func _create_menu() -> void:
 		_show_sword_cards()
 	)
 	_add_menu_button("GUNS", func() -> void:
-		_show_gun_cards()
+		_show_guns_screen()
 	)
 	_add_menu_button("ABILITIES", func() -> void:
 		_show_abilities_screen()
@@ -532,6 +566,7 @@ func _create_menu() -> void:
 	_cards_grid.add_theme_constant_override("h_separation", 14)
 	_cards_grid.add_theme_constant_override("v_separation", 14)
 	_cards_scroll.add_child(_cards_grid)
+	_create_guns_panel()
 	_create_abilities_panel()
 	_create_quests_panel()
 
@@ -572,6 +607,104 @@ func _apply_button_card_style(button: Button, accent: Color, faded: bool = false
 	button.add_theme_color_override("font_hover_color", Color(0.08, 0.035, 0.018))
 	button.add_theme_color_override("font_disabled_color", Color(0.24, 0.2, 0.16))
 
+func _create_guns_panel() -> void:
+	_guns_panel.visible = false
+	_guns_panel.custom_minimum_size = Vector2(520, 360)
+	_guns_panel.add_theme_constant_override("separation", 12)
+	_menu_content.add_child(_guns_panel)
+
+	var title := Label.new()
+	title.text = "GUN CARDS  CLICK TO EQUIP"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.custom_minimum_size = Vector2(534, 30)
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(1.0, 0.78, 0.36))
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_guns_panel.add_child(title)
+
+	_guns_grid.columns = 2
+	_guns_grid.add_theme_constant_override("h_separation", 14)
+	_guns_grid.add_theme_constant_override("v_separation", 14)
+	_guns_panel.add_child(_guns_grid)
+
+	for gun_id in _gun_ids:
+		var button := Button.new()
+		button.flat = false
+		button.custom_minimum_size = Vector2(260, 150)
+		button.pressed.connect(func() -> void:
+			_equip_gun(gun_id)
+		)
+		_gun_buttons[gun_id] = button
+		_guns_grid.add_child(button)
+
+		var margin := MarginContainer.new()
+		margin.add_theme_constant_override("margin_left", 12)
+		margin.add_theme_constant_override("margin_top", 8)
+		margin.add_theme_constant_override("margin_right", 12)
+		margin.add_theme_constant_override("margin_bottom", 8)
+		margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(margin)
+
+		var stack := VBoxContainer.new()
+		stack.custom_minimum_size = Vector2(236, 132)
+		stack.add_theme_constant_override("separation", 5)
+		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		margin.add_child(stack)
+
+		var top_row := HBoxContainer.new()
+		top_row.custom_minimum_size = Vector2(236, 30)
+		top_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(top_row)
+
+		var name_label := Label.new()
+		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		name_label.custom_minimum_size = Vector2(160, 30)
+		name_label.add_theme_font_size_override("font_size", 19)
+		name_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		top_row.add_child(name_label)
+
+		var status_label := Label.new()
+		status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		status_label.custom_minimum_size = Vector2(76, 30)
+		status_label.add_theme_font_size_override("font_size", 12)
+		status_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		top_row.add_child(status_label)
+
+		var accent_bar := ColorRect.new()
+		accent_bar.color = Color(0.86, 0.46, 0.18)
+		accent_bar.custom_minimum_size = Vector2(236, 7)
+		accent_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(accent_bar)
+
+		var body_label := Label.new()
+		body_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		body_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		body_label.custom_minimum_size = Vector2(236, 56)
+		body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body_label.add_theme_font_size_override("font_size", 16)
+		body_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		body_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(body_label)
+
+		var footer_label := Label.new()
+		footer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		footer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		footer_label.custom_minimum_size = Vector2(236, 24)
+		footer_label.add_theme_font_size_override("font_size", 13)
+		footer_label.add_theme_color_override("font_color", Color(0.24, 0.11, 0.045))
+		footer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(footer_label)
+
+		_gun_buttons["%s_name" % gun_id] = name_label
+		_gun_buttons["%s_status" % gun_id] = status_label
+		_gun_buttons["%s_body" % gun_id] = body_label
+		_gun_buttons["%s_footer" % gun_id] = footer_label
+	_refresh_gun_buttons()
+
 func _create_abilities_panel() -> void:
 	_abilities_panel.visible = false
 	_abilities_panel.custom_minimum_size = Vector2(520, 360)
@@ -580,6 +713,8 @@ func _create_abilities_panel() -> void:
 
 	var title := Label.new()
 	title.text = "ABILITY CARDS  CLICK TO EQUIP"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.custom_minimum_size = Vector2(534, 30)
 	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", Color(1.0, 0.78, 0.36))
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -601,21 +736,30 @@ func _create_abilities_panel() -> void:
 		_ability_buttons[ability_id] = button
 		_abilities_grid.add_child(button)
 
+		var margin := MarginContainer.new()
+		margin.add_theme_constant_override("margin_left", 12)
+		margin.add_theme_constant_override("margin_top", 8)
+		margin.add_theme_constant_override("margin_right", 12)
+		margin.add_theme_constant_override("margin_bottom", 8)
+		margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(margin)
+
 		var stack := VBoxContainer.new()
-		stack.custom_minimum_size = Vector2(232, 126)
+		stack.custom_minimum_size = Vector2(236, 132)
 		stack.add_theme_constant_override("separation", 5)
 		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		button.add_child(stack)
+		margin.add_child(stack)
 
 		var top_row := HBoxContainer.new()
-		top_row.custom_minimum_size = Vector2(232, 28)
+		top_row.custom_minimum_size = Vector2(236, 30)
 		top_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stack.add_child(top_row)
 
 		var name_label := Label.new()
 		name_label.text = ""
-		name_label.custom_minimum_size = Vector2(160, 28)
-		name_label.add_theme_font_size_override("font_size", 20)
+		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		name_label.custom_minimum_size = Vector2(160, 30)
+		name_label.add_theme_font_size_override("font_size", 19)
 		name_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -624,7 +768,8 @@ func _create_abilities_panel() -> void:
 		var status_label := Label.new()
 		status_label.text = ""
 		status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		status_label.custom_minimum_size = Vector2(72, 28)
+		status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		status_label.custom_minimum_size = Vector2(76, 30)
 		status_label.add_theme_font_size_override("font_size", 12)
 		status_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
 		status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -632,22 +777,26 @@ func _create_abilities_panel() -> void:
 
 		var accent_bar := ColorRect.new()
 		accent_bar.color = Color(0.86, 0.46, 0.18)
-		accent_bar.custom_minimum_size = Vector2(232, 8)
+		accent_bar.custom_minimum_size = Vector2(236, 7)
 		accent_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stack.add_child(accent_bar)
 
 		var body_label := Label.new()
 		body_label.text = ""
-		body_label.custom_minimum_size = Vector2(232, 54)
+		body_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		body_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		body_label.custom_minimum_size = Vector2(236, 56)
 		body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		body_label.add_theme_font_size_override("font_size", 17)
+		body_label.add_theme_font_size_override("font_size", 16)
 		body_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
 		body_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stack.add_child(body_label)
 
 		var footer_label := Label.new()
 		footer_label.text = ""
-		footer_label.custom_minimum_size = Vector2(232, 22)
+		footer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		footer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		footer_label.custom_minimum_size = Vector2(236, 24)
 		footer_label.add_theme_font_size_override("font_size", 13)
 		footer_label.add_theme_color_override("font_color", Color(0.24, 0.11, 0.045))
 		footer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -661,6 +810,7 @@ func _create_abilities_panel() -> void:
 	_refresh_ability_buttons()
 
 func _show_card_grid(cards: Array) -> void:
+	_guns_panel.visible = false
 	_abilities_panel.visible = false
 	_quests_panel.visible = false
 	_cards_scroll.visible = true
@@ -688,20 +838,21 @@ func _show_overview_cards() -> void:
 
 func _show_sword_cards() -> void:
 	_show_card_grid([
-		{"title": "Saber", "category": "SWORD", "body": "Quick, reliable close-range slash. Use it to cut rushers, punish riflemen, and parry danger.", "footer": "Starter blade", "accent": Color(0.72, 0.46, 0.2)},
-		{"title": "Black Sash", "category": "SWORD", "body": "A duelist-earned saber built for sharper boss pressure and cleaner close combat.", "footer": "Boss reward", "accent": Color(0.18, 0.08, 0.04)},
-		{"title": "Grave Saber", "category": "SWORD", "body": "A quest blade for long-haul outlaw clearing. Earn it by surviving enough fights across runs.", "footer": "Quest reward", "accent": Color(0.42, 0.38, 0.32)},
+		{"title": "Saber", "category": "OWNED", "body": "Quick, reliable close-range slash. Use it to cut rushers, punish riflemen, and parry danger.", "footer": "Starter blade", "accent": Color(0.72, 0.46, 0.2)},
+		{"title": "Black Sash", "category": "LOCKED", "body": "Sharper boss-pressure blade with a faster parry window.", "footer": "Unlock: defeat 1 duelist", "accent": Color(0.18, 0.08, 0.04)},
+		{"title": "Grave Saber", "category": "LOCKED", "body": "Longer, heavier blade for clearing packed outlaw waves.", "footer": "Unlock: kill 100 enemies", "accent": Color(0.42, 0.38, 0.32)},
+		{"title": "Sandstorm", "category": "LOCKED", "body": "Wide sweeping saber made for surviving crowded late waves.", "footer": "Unlock: reach wave 10", "accent": Color(0.78, 0.58, 0.3)},
+		{"title": "Red Canyon", "category": "LOCKED", "body": "Heavy duelist blade with punishing single-strike damage.", "footer": "Unlock: defeat 8 duelists", "accent": Color(0.66, 0.16, 0.08)},
+		{"title": "Sunrise", "category": "LOCKED", "body": "Endgame saber with long reach, wide arc, and generous parry timing.", "footer": "Unlock: kill 250 enemies", "accent": Color(1.0, 0.72, 0.2)},
 		{"title": "Parry Timing", "category": "MOVE", "body": "Slash at the right moment to turn danger into space. Parries cool the fight down and keep you alive.", "footer": "Close-range skill", "accent": Color(0.95, 0.82, 0.34)},
 	])
 
-func _show_gun_cards() -> void:
-	_show_card_grid([
-		{"title": "Revolver", "category": "GUN", "body": "Your Dust Heist sidearm. Most gun skills fire from this single-action revolver.", "footer": "Core weapon", "accent": Color(0.24, 0.11, 0.045)},
-		{"title": "Deadeye", "category": "SHOT", "body": "A steady long shot for picking off distant riflemen before they control the lane.", "footer": "Precision", "accent": Color(0.9, 0.68, 0.32)},
-		{"title": "Quickdraw", "category": "SHOT", "body": "A fast skillshot that rewards clean aim when enemies are closing in.", "footer": "Fast cast", "accent": Color(1.0, 0.86, 0.46)},
-		{"title": "Ricochet", "category": "SHOT", "body": "Banks a bullet through clustered outlaws. Best when the wave starts to crowd you.", "footer": "Crowd control", "accent": Color(0.95, 0.36, 0.1)},
-		{"title": "Fan Hammer", "category": "GUN", "body": "Unlock rapid close-range revolver fire for messy waves and emergency clears.", "footer": "Quest unlock", "accent": Color(1.0, 0.42, 0.12)},
-	])
+func _show_guns_screen() -> void:
+	_cards_scroll.visible = false
+	_abilities_panel.visible = false
+	_quests_panel.visible = false
+	_guns_panel.visible = true
+	_refresh_gun_buttons()
 
 func _show_information_cards() -> void:
 	_show_card_grid([
@@ -717,9 +868,40 @@ func _show_information_cards() -> void:
 
 func _show_abilities_screen() -> void:
 	_cards_scroll.visible = false
+	_guns_panel.visible = false
 	_quests_panel.visible = false
 	_abilities_panel.visible = true
 	_refresh_ability_buttons()
+
+func _equip_gun(gun_id: String) -> void:
+	if not _unlocked_guns.has(gun_id):
+		return
+	_equipped_gun = gun_id
+	_refresh_gun_buttons()
+	gun_loadout_changed.emit(gun_id)
+
+func _refresh_gun_buttons() -> void:
+	for gun_id in _gun_ids:
+		if not _gun_buttons.has(gun_id):
+			continue
+		var button: Button = _gun_buttons[gun_id]
+		var name_label: Label = _gun_buttons["%s_name" % gun_id]
+		var status_label: Label = _gun_buttons["%s_status" % gun_id]
+		var body_label: Label = _gun_buttons["%s_body" % gun_id]
+		var footer_label: Label = _gun_buttons["%s_footer" % gun_id]
+		var unlocked := _unlocked_guns.has(gun_id)
+		var equipped := _equipped_gun == gun_id
+		name_label.text = _gun_names[gun_id]
+		status_label.text = "EQUIPPED" if equipped else ("READY" if unlocked else "LOCKED")
+		body_label.text = _gun_descriptions[gun_id]
+		footer_label.text = "Equipped gun" if equipped else ("Click to equip" if unlocked else _gun_unlocks[gun_id])
+		var label_modulate := Color(1.0, 1.0, 1.0, 1.0) if unlocked else Color(0.78, 0.68, 0.56, 0.95)
+		name_label.modulate = label_modulate
+		status_label.modulate = label_modulate
+		body_label.modulate = label_modulate
+		footer_label.modulate = label_modulate
+		button.disabled = false
+		_apply_button_card_style(button, Color(0.86, 0.58, 0.28), not unlocked)
 
 func _toggle_ability(ability_id: String) -> void:
 	if not _unlocked_abilities.has(ability_id):
@@ -797,6 +979,7 @@ func _create_quests_panel() -> void:
 
 func _show_quests_screen() -> void:
 	_cards_scroll.visible = false
+	_guns_panel.visible = false
 	_abilities_panel.visible = false
 	_quests_panel.visible = true
 	_refresh_quest_panel()
@@ -833,9 +1016,12 @@ func _layout_menu() -> void:
 	_menu_panel.custom_minimum_size = Vector2(minf(220.0, content_width * 0.3), content_height)
 	var right_width := maxf(280.0, content_width - _menu_panel.custom_minimum_size.x - 48.0)
 	_cards_scroll.custom_minimum_size = Vector2(right_width, content_height)
+	_guns_panel.custom_minimum_size = Vector2(right_width, content_height)
 	_abilities_panel.custom_minimum_size = Vector2(right_width, content_height)
 	_quests_panel.custom_minimum_size = Vector2(right_width, content_height)
 	_cards_grid.columns = 1 if right_width < 520.0 else 2
+	_guns_grid.columns = 1 if right_width < 520.0 else 2
+	_abilities_grid.columns = 1 if right_width < 520.0 else 2
 
 func _set_gameplay_hud_visible(visible_state: bool) -> void:
 	_health_back.visible = visible_state

@@ -11,8 +11,17 @@ var available_programs := {
 	"ghost_step": {"name": "Ghost Step", "cooldown": 9.0},
 }
 
+var gun_profiles := {
+	"revolver": {"damage": 1.0, "range": 1.0, "width": 1.0, "cooldown": 1.0, "radius": 1.0, "chain": 1.0},
+	"long_rifle": {"damage": 1.18, "range": 1.25, "width": 0.85, "cooldown": 1.08, "radius": 0.95, "chain": 1.0},
+	"sawed_off": {"damage": 1.12, "range": 0.78, "width": 1.45, "cooldown": 0.95, "radius": 1.18, "chain": 0.85},
+	"pepperbox": {"damage": 0.9, "range": 0.94, "width": 1.1, "cooldown": 0.72, "radius": 1.0, "chain": 1.0},
+	"golden_revolver": {"damage": 1.25, "range": 1.12, "width": 1.12, "cooldown": 0.86, "radius": 1.08, "chain": 1.2},
+}
+
 var unlocked := {}
 var equipped: Array[String] = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
+var equipped_gun := "revolver"
 var cooldowns := {}
 var _rng := RandomNumberGenerator.new()
 
@@ -31,22 +40,24 @@ func can_cast(program_id: String) -> bool:
 
 func cast(program_id: String, origin: Vector2, direction: Vector2, enemies: Array[Node2D]) -> Dictionary:
 	var data: Dictionary = available_programs.get(program_id, {})
-	cooldowns[program_id] = data.get("cooldown", 3.0)
+	var profile := _gun_profile()
+	var cooldown_scale: float = profile.get("cooldown", 1.0) if _is_gun_program(program_id) else 1.0
+	cooldowns[program_id] = data.get("cooldown", 3.0) * cooldown_scale
 	var aim := direction.normalized()
 
 	match program_id:
 		"deadeye":
-			return _skillshot_program(origin, aim, enemies, 760.0, 26.0, 70.0, 0.16, Color(0.9, 0.68, 0.32), "deadeye")
+			return _skillshot_program(origin, aim, enemies, 760.0 * profile.get("range", 1.0), 26.0 * profile.get("width", 1.0), 70.0 * profile.get("damage", 1.0), 0.16, Color(0.9, 0.68, 0.32), "deadeye")
 		"ricochet_shot":
-			return _area_program(origin, enemies, 410.0, 38.0, 0.22, Color(0.95, 0.36, 0.1), 300.0, "ricochet")
+			return _area_program(origin, enemies, 410.0 * profile.get("radius", 1.0), 38.0 * profile.get("damage", 1.0), 0.22, Color(0.95, 0.36, 0.1), 300.0 * profile.get("chain", 1.0), "ricochet")
 		"dust_veil":
 			return _area_program(origin, enemies, 210.0, 8.0, 0.06, Color(0.78, 0.58, 0.34), 0.0, "veil", 1.25)
 		"quickdraw":
-			return _skillshot_program(origin, aim, enemies, 420.0, 34.0, 60.0, 0.18, Color(1.0, 0.86, 0.46), "quickdraw")
+			return _skillshot_program(origin, aim, enemies, 420.0 * profile.get("range", 1.0), 34.0 * profile.get("width", 1.0), 60.0 * profile.get("damage", 1.0), 0.18, Color(1.0, 0.86, 0.46), "quickdraw")
 		"duelist_lunge":
 			return _skillshot_program(origin, aim, enemies, 500.0, 38.0, 72.0, 0.2, Color(0.95, 0.12, 0.04), "duelist_lunge")
 		"fan_hammer":
-			return _area_program(origin, enemies, 290.0, 52.0, 0.24, Color(1.0, 0.42, 0.12), 0.0, "fan_hammer")
+			return _area_program(origin, enemies, 290.0 * profile.get("radius", 1.0), 52.0 * profile.get("damage", 1.0), 0.24, Color(1.0, 0.42, 0.12), 0.0, "fan_hammer")
 		"ghost_step":
 			return _area_program(origin, enemies, 230.0, 18.0, 0.08, Color(0.86, 0.76, 0.58), 0.0, "veil", 1.85)
 		_:
@@ -89,6 +100,10 @@ func set_equipped(new_equipped: Array[String]) -> void:
 			break
 	equipped = next
 
+func set_equipped_gun(gun_id: String) -> void:
+	if gun_profiles.has(gun_id):
+		equipped_gun = gun_id
+
 func get_equipped_id(slot: int) -> String:
 	if slot < 0 or slot >= equipped.size():
 		return ""
@@ -123,6 +138,12 @@ func get_equipped_summary() -> Array[Dictionary]:
 			"max_cooldown": data["cooldown"],
 		})
 	return summary
+
+func _is_gun_program(program_id: String) -> bool:
+	return ["deadeye", "ricochet_shot", "quickdraw", "fan_hammer"].has(program_id)
+
+func _gun_profile() -> Dictionary:
+	return gun_profiles.get(equipped_gun, gun_profiles["revolver"])
 
 func _area_program(origin: Vector2, enemies: Array[Node2D], radius: float, damage: float, heat: float, color: Color, chain_radius: float, effect: String, veil_duration: float = 0.0) -> Dictionary:
 	var hit_enemies: Array[Node2D] = []
