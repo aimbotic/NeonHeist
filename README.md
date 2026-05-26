@@ -1,14 +1,15 @@
 # Dust Heist
 
-A Godot 4 western arena survival prototype. The current build is a fast, lethal courtyard duel game with one-hit player tension, saber quickdraw combat, outlaw skills, human enemy archetypes, and persistent blood on the sand.
+A Godot 4 western arena survival prototype. The current build is a fast, lethal courthouse ambush game with one-hit player tension, saber and revolver combat, outlaw skills, human enemy archetypes, and persistent blood on the sand.
 
 ## Current Prototype
 
 - Bright sandy courtyard arena surrounded by old-west buildings
-- One-hit player with dash movement and saber quickdraw parry
+- One-hit player with dash movement and close-range saber parries
 - Wave-based survival with knife rushers, riflemen, shotgun brutes, and duelist minibosses
 - Duelist intro cards with wind and leaf motion
 - Western skill set: Deadeye, Ricochet Shot, Dust Veil, and Quickdraw
+- Dust Heist information menu for controls, weapons, enemies, and run goals
 - Persistent blood stains and grounded dust/weapon effects
 - Local JSON save for credits and run count
 
@@ -16,7 +17,7 @@ A Godot 4 western arena survival prototype. The current build is a fast, lethal 
 
 - Move: WASD, arrow keys, or touch-drag
 - Dash: Space
-- Saber slash: J or left mouse
+- Sword slash: J or left mouse
 - Deadeye: 1
 - Ricochet Shot: 2
 - Dust Veil: 3
@@ -50,7 +51,7 @@ mkdir build\web
 - `scripts/game/main.gd`: run orchestration, wave spawning, and arena rendering
 - `scripts/game/vault_generator.gd`: arena layout data
 - `scripts/game/game_director.gd`: danger escalation model
-- `scripts/player/player.gd`: movement, one-hit health, saber, parry, and mobile drag input
+- `scripts/player/player.gd`: movement, one-hit health, sword attacks, parry, and mobile drag input
 - `scripts/enemies/`: outlaw enemy behaviors
 - `scripts/systems/program_system.gd`: western skill catalog, cooldowns, and casts
 - `scripts/systems/vfx_layer.gd`: blood, dust, weapon trails, and rifle traces

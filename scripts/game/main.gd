@@ -1,9 +1,9 @@
 extends Node2D
 
 const PlayerScene := preload("res://scripts/player/player.gd")
-const DroneScene := preload("res://scripts/enemies/drone.gd")
+const KnifeRusherScene := preload("res://scripts/enemies/knife_rusher.gd")
 const HunterScene := preload("res://scripts/enemies/hunter.gd")
-const TurretScene := preload("res://scripts/enemies/turret.gd")
+const RiflemanScene := preload("res://scripts/enemies/rifleman.gd")
 const ShotgunBruteScene := preload("res://scripts/enemies/shotgun_brute.gd")
 const DuelistScene := preload("res://scripts/enemies/duelist.gd")
 const DirectorScene := preload("res://scripts/game/game_director.gd")
@@ -448,10 +448,10 @@ func _spawn_wave(wave: int) -> void:
 	var index := 0
 
 	for i in range(knife_count):
-		_spawn_enemy(DroneScene, index, spawn_total)
+		_spawn_enemy(KnifeRusherScene, index, spawn_total)
 		index += 1
 	for i in range(rifleman_count):
-		_spawn_enemy(TurretScene, index, spawn_total)
+		_spawn_enemy(RiflemanScene, index, spawn_total)
 		index += 1
 	for i in range(brute_count):
 		_spawn_enemy(ShotgunBruteScene, index, spawn_total)

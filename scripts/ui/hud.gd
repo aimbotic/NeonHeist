@@ -95,16 +95,89 @@ class SkillIcon extends Control:
 		draw_circle(center + Vector2(8.0, -4.0), 13.0, Color(0.94, 0.86, 0.68, 0.35))
 		draw_polyline(PackedVector2Array([Vector2(14, 44), Vector2(28, 30), Vector2(42, 42), Vector2(52, 24)]), Color(1.0, 0.84, 0.52, 0.82), 3.0)
 
+class InfoCard extends PanelContainer:
+	func configure(title: String, category: String, body: String, footer: String = "", accent: Color = Color(0.82, 0.46, 0.18)) -> void:
+		custom_minimum_size = Vector2(260.0, 190.0)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+		var panel := StyleBoxFlat.new()
+		panel.bg_color = Color(0.94, 0.78, 0.48, 0.96)
+		panel.border_color = Color(0.11, 0.052, 0.024, 1.0)
+		panel.border_width_left = 4
+		panel.border_width_top = 4
+		panel.border_width_right = 4
+		panel.border_width_bottom = 4
+		panel.corner_radius_top_left = 8
+		panel.corner_radius_top_right = 8
+		panel.corner_radius_bottom_left = 8
+		panel.corner_radius_bottom_right = 8
+		add_theme_stylebox_override("panel", panel)
+
+		var margin := MarginContainer.new()
+		margin.add_theme_constant_override("margin_left", 12)
+		margin.add_theme_constant_override("margin_top", 10)
+		margin.add_theme_constant_override("margin_right", 12)
+		margin.add_theme_constant_override("margin_bottom", 10)
+		add_child(margin)
+
+		var stack := VBoxContainer.new()
+		stack.add_theme_constant_override("separation", 5)
+		margin.add_child(stack)
+
+		var top_row := HBoxContainer.new()
+		top_row.add_theme_constant_override("separation", 8)
+		stack.add_child(top_row)
+
+		var title_label := Label.new()
+		title_label.text = title
+		title_label.custom_minimum_size = Vector2(166.0, 30.0)
+		title_label.add_theme_font_size_override("font_size", 23)
+		title_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		top_row.add_child(title_label)
+
+		var category_label := Label.new()
+		category_label.text = category
+		category_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		category_label.custom_minimum_size = Vector2(56.0, 26.0)
+		category_label.add_theme_font_size_override("font_size", 13)
+		category_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		category_label.add_theme_color_override("font_outline_color", accent.darkened(0.25))
+		category_label.add_theme_constant_override("outline_size", 0)
+		top_row.add_child(category_label)
+
+		var art := ColorRect.new()
+		art.color = accent
+		art.custom_minimum_size = Vector2(236.0, 12.0)
+		stack.add_child(art)
+
+		var body_label := Label.new()
+		body_label.text = body
+		body_label.custom_minimum_size = Vector2(236.0, 94.0)
+		body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body_label.add_theme_font_size_override("font_size", 18)
+		body_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		stack.add_child(body_label)
+
+		if footer != "":
+			var footer_label := Label.new()
+			footer_label.text = footer
+			footer_label.custom_minimum_size = Vector2(236.0, 24.0)
+			footer_label.add_theme_font_size_override("font_size", 14)
+			footer_label.add_theme_color_override("font_color", Color(0.24, 0.11, 0.045))
+			footer_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			stack.add_child(footer_label)
+
 var _root := Control.new()
 var _menu_root := Control.new()
 var _menu_title := Label.new()
 var _menu_panel := VBoxContainer.new()
-var _menu_detail := Label.new()
 var _menu_content := HBoxContainer.new()
+var _cards_scroll := ScrollContainer.new()
+var _cards_grid := GridContainer.new()
 var _abilities_panel := VBoxContainer.new()
+var _abilities_grid := GridContainer.new()
 var _quests_panel := VBoxContainer.new()
-var _abilities_icons: Array[SkillIcon] = []
-var _ability_rows: Dictionary = {}
 var _ability_buttons: Dictionary = {}
 var _quest_labels: Dictionary = {}
 var _ability_ids: Array[String] = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw", "duelist_lunge", "fan_hammer", "ghost_step"]
@@ -118,13 +191,13 @@ var _ability_names := {
 	"ghost_step": "Ghost Step",
 }
 var _ability_descriptions := {
-	"deadeye": "Long-range precision shot.",
-	"ricochet_shot": "Bouncing crowd-control shot.",
-	"dust_veil": "Brief sand-cloak survival burst.",
-	"quickdraw": "Fast revolver skillshot.",
-	"duelist_lunge": "Boss dash into a saber strike.",
-	"fan_hammer": "Rapid fan-fire blast.",
-	"ghost_step": "Longer dust-cloak sidestep.",
+	"deadeye": "A calm long-range shot.",
+	"ricochet_shot": "A bullet that bounces.",
+	"dust_veil": "A short sand-cloak escape.",
+	"quickdraw": "A fast revolver shot.",
+	"duelist_lunge": "A sharp sword dash.",
+	"fan_hammer": "Rapid close-range fire.",
+	"ghost_step": "A longer dust sidestep.",
 }
 var _unlocked_abilities: Array[String] = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
 var _equipped_abilities: Array[String] = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
@@ -325,7 +398,7 @@ func show_main_menu() -> void:
 	_menu_root.move_to_front()
 	_set_gameplay_hud_visible(false)
 	_layout_menu()
-	_show_menu_detail("Choose your loadout, then enter the courtyard.")
+	_show_overview_cards()
 	_death_screen.color.a = 0.0
 	_death_label.add_theme_color_override("font_color", Color(0.94, 0.82, 0.64, 0.0))
 	_message_label.text = ""
@@ -414,7 +487,7 @@ func _create_menu() -> void:
 
 	_menu_title.text = "DUST HEIST"
 	_menu_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_menu_title.add_theme_font_size_override("font_size", 68)
+	_menu_title.add_theme_font_size_override("font_size", 56)
 	_menu_title.add_theme_color_override("font_color", Color(0.95, 0.78, 0.45))
 	_menu_title.position = Vector2.ZERO
 	_menu_title.size = Vector2(900.0, 86.0)
@@ -426,7 +499,7 @@ func _create_menu() -> void:
 	_menu_content.add_theme_constant_override("separation", 48)
 	_menu_root.add_child(_menu_content)
 
-	_menu_panel.custom_minimum_size = Vector2(270, 244)
+	_menu_panel.custom_minimum_size = Vector2(220, 244)
 	_menu_panel.add_theme_constant_override("separation", 12)
 	_menu_content.add_child(_menu_panel)
 
@@ -434,11 +507,11 @@ func _create_menu() -> void:
 		hide_main_menu()
 		play_requested.emit()
 	)
-	_add_menu_button("SELECT BLADE", func() -> void:
-		_show_menu_detail("Blade: Saber\nBoss reward: Black Sash Saber from defeated duelists.")
+	_add_menu_button("SWORDS", func() -> void:
+		_show_sword_cards()
 	)
-	_add_menu_button("SELECT GUN", func() -> void:
-		_show_menu_detail("Gun: Revolver\nQuickdraw skillshot, Deadeye long shot, Ricochet round.")
+	_add_menu_button("GUNS", func() -> void:
+		_show_gun_cards()
 	)
 	_add_menu_button("ABILITIES", func() -> void:
 		_show_abilities_screen()
@@ -446,87 +519,204 @@ func _create_menu() -> void:
 	_add_menu_button("QUESTS", func() -> void:
 		_show_quests_screen()
 	)
-	_add_menu_button("SETTINGS", func() -> void:
-		_show_menu_detail("Settings\nWASD moves, J or mouse slashes, 1-4 uses skills.")
+	_add_menu_button("INFORMATION", func() -> void:
+		_show_information_cards()
 	)
 
-	_menu_detail.custom_minimum_size = Vector2(400, 308)
-	_menu_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_menu_detail.add_theme_font_size_override("font_size", 24)
-	_menu_detail.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_menu_detail.add_theme_color_override("font_color", Color(0.98, 0.9, 0.76))
-	_menu_detail.text = "Choose your loadout, then enter the courtyard."
-	_menu_detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_menu_content.add_child(_menu_detail)
+	_cards_scroll.custom_minimum_size = Vector2(560, 360)
+	_cards_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_cards_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_menu_content.add_child(_cards_scroll)
+
+	_cards_grid.columns = 2
+	_cards_grid.add_theme_constant_override("h_separation", 14)
+	_cards_grid.add_theme_constant_override("v_separation", 14)
+	_cards_scroll.add_child(_cards_grid)
 	_create_abilities_panel()
 	_create_quests_panel()
 
 func _add_menu_button(text: String, callback: Callable) -> void:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size = Vector2(270, 52)
-	button.add_theme_font_size_override("font_size", 20)
+	button.custom_minimum_size = Vector2(220, 44)
+	button.add_theme_font_size_override("font_size", 18)
 	button.add_theme_color_override("font_color", Color(0.98, 0.9, 0.76))
 	button.add_theme_color_override("font_hover_color", Color(1.0, 0.78, 0.36))
 	button.pressed.connect(callback)
 	_menu_panel.add_child(button)
 
+func _make_card_style(accent: Color, faded: bool = false) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.94, 0.78, 0.48, 0.94) if not faded else Color(0.46, 0.36, 0.24, 0.86)
+	style.border_color = accent.darkened(0.45)
+	style.border_width_left = 4
+	style.border_width_top = 4
+	style.border_width_right = 4
+	style.border_width_bottom = 4
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	style.content_margin_left = 12
+	style.content_margin_top = 10
+	style.content_margin_right = 12
+	style.content_margin_bottom = 10
+	return style
+
+func _apply_button_card_style(button: Button, accent: Color, faded: bool = false) -> void:
+	button.add_theme_stylebox_override("normal", _make_card_style(accent, faded))
+	button.add_theme_stylebox_override("hover", _make_card_style(accent.lightened(0.15), faded))
+	button.add_theme_stylebox_override("pressed", _make_card_style(accent.darkened(0.1), faded))
+	button.add_theme_stylebox_override("disabled", _make_card_style(Color(0.24, 0.2, 0.16), true))
+	button.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+	button.add_theme_color_override("font_hover_color", Color(0.08, 0.035, 0.018))
+	button.add_theme_color_override("font_disabled_color", Color(0.24, 0.2, 0.16))
+
 func _create_abilities_panel() -> void:
 	_abilities_panel.visible = false
-	_abilities_panel.custom_minimum_size = Vector2(520, 384)
-	_abilities_panel.add_theme_constant_override("separation", 8)
+	_abilities_panel.custom_minimum_size = Vector2(520, 360)
+	_abilities_panel.add_theme_constant_override("separation", 12)
 	_menu_content.add_child(_abilities_panel)
 
 	var title := Label.new()
-	title.text = "ABILITIES  CLICK TO EQUIP"
-	title.add_theme_font_size_override("font_size", 22)
+	title.text = "ABILITY CARDS  CLICK TO EQUIP"
+	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", Color(1.0, 0.78, 0.36))
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_abilities_panel.add_child(title)
 
+	_abilities_grid.columns = 2
+	_abilities_grid.add_theme_constant_override("h_separation", 14)
+	_abilities_grid.add_theme_constant_override("v_separation", 14)
+	_abilities_panel.add_child(_abilities_grid)
+
 	for ability_id in _ability_ids:
 		var button := Button.new()
-		button.flat = true
-		button.custom_minimum_size = Vector2(500, 58)
+		button.flat = false
+		button.custom_minimum_size = Vector2(260, 150)
+		_apply_button_card_style(button, Color(0.86, 0.58, 0.28))
 		button.pressed.connect(func() -> void:
 			_toggle_ability(ability_id)
 		)
 		_ability_buttons[ability_id] = button
-		_abilities_panel.add_child(button)
+		_abilities_grid.add_child(button)
 
-		var row := HBoxContainer.new()
-		row.custom_minimum_size = Vector2(500, 58)
-		row.add_theme_constant_override("separation", 12)
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		button.add_child(row)
+		var stack := VBoxContainer.new()
+		stack.custom_minimum_size = Vector2(232, 126)
+		stack.add_theme_constant_override("separation", 5)
+		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(stack)
 
-		var icon := SkillIcon.new()
-		icon.custom_minimum_size = Vector2(54, 54)
-		icon.size = Vector2(54, 54)
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		icon.set_state(ability_id, "", 0.0)
-		_abilities_icons.append(icon)
-		row.add_child(icon)
+		var top_row := HBoxContainer.new()
+		top_row.custom_minimum_size = Vector2(232, 28)
+		top_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(top_row)
 
-		var copy := Label.new()
-		copy.text = ""
-		copy.custom_minimum_size = Vector2(430, 54)
-		copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		copy.add_theme_font_size_override("font_size", 14)
-		copy.add_theme_color_override("font_color", Color(0.98, 0.9, 0.76))
-		copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(copy)
-		_ability_rows[ability_id] = {"icon": icon, "label": copy}
+		var name_label := Label.new()
+		name_label.text = ""
+		name_label.custom_minimum_size = Vector2(160, 28)
+		name_label.add_theme_font_size_override("font_size", 20)
+		name_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		top_row.add_child(name_label)
+
+		var status_label := Label.new()
+		status_label.text = ""
+		status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		status_label.custom_minimum_size = Vector2(72, 28)
+		status_label.add_theme_font_size_override("font_size", 12)
+		status_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		top_row.add_child(status_label)
+
+		var accent_bar := ColorRect.new()
+		accent_bar.color = Color(0.86, 0.46, 0.18)
+		accent_bar.custom_minimum_size = Vector2(232, 8)
+		accent_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(accent_bar)
+
+		var body_label := Label.new()
+		body_label.text = ""
+		body_label.custom_minimum_size = Vector2(232, 54)
+		body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body_label.add_theme_font_size_override("font_size", 17)
+		body_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		body_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(body_label)
+
+		var footer_label := Label.new()
+		footer_label.text = ""
+		footer_label.custom_minimum_size = Vector2(232, 22)
+		footer_label.add_theme_font_size_override("font_size", 13)
+		footer_label.add_theme_color_override("font_color", Color(0.24, 0.11, 0.045))
+		footer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(footer_label)
+
+		_ability_buttons[ability_id] = button
+		_ability_buttons["%s_name" % ability_id] = name_label
+		_ability_buttons["%s_status" % ability_id] = status_label
+		_ability_buttons["%s_body" % ability_id] = body_label
+		_ability_buttons["%s_footer" % ability_id] = footer_label
 	_refresh_ability_buttons()
 
-func _show_menu_detail(text: String) -> void:
+func _show_card_grid(cards: Array) -> void:
 	_abilities_panel.visible = false
 	_quests_panel.visible = false
-	_menu_detail.visible = true
-	_menu_detail.text = text
+	_cards_scroll.visible = true
+	for child in _cards_grid.get_children():
+		_cards_grid.remove_child(child)
+		child.queue_free()
+	for card_data in cards:
+		var card := InfoCard.new()
+		card.configure(
+			str(card_data.get("title", "")),
+			str(card_data.get("category", "")),
+			str(card_data.get("body", "")),
+			str(card_data.get("footer", "")),
+			card_data.get("accent", Color(0.82, 0.46, 0.18))
+		)
+		_cards_grid.add_child(card)
+
+func _show_overview_cards() -> void:
+	_show_card_grid([
+		{"title": "Dust Heist", "category": "RUN", "body": "Survive the courthouse ambush, clear outlaw waves, and earn credits before the dust buries you.", "footer": "Goal: stay alive", "accent": Color(0.78, 0.42, 0.18)},
+		{"title": "Courtyard", "category": "MAP", "body": "Fight inside a sandy old-west arena ringed by storefronts, cover shadows, and incoming enemies.", "footer": "Stay moving", "accent": Color(0.58, 0.32, 0.14)},
+		{"title": "One Hit", "category": "RULE", "body": "Health is precious. Dashes, parries, Dust Veil, and clean spacing decide whether a run survives.", "footer": "Mistakes hurt", "accent": Color(0.72, 0.08, 0.04)},
+		{"title": "Credits", "category": "SAVE", "body": "Defeated enemies and cleared waves pay credits after a run ends. Quest progress is saved locally.", "footer": "Progress persists", "accent": Color(0.95, 0.68, 0.24)},
+	])
+
+func _show_sword_cards() -> void:
+	_show_card_grid([
+		{"title": "Saber", "category": "SWORD", "body": "Quick, reliable close-range slash. Use it to cut rushers, punish riflemen, and parry danger.", "footer": "Starter blade", "accent": Color(0.72, 0.46, 0.2)},
+		{"title": "Black Sash", "category": "SWORD", "body": "A duelist-earned saber built for sharper boss pressure and cleaner close combat.", "footer": "Boss reward", "accent": Color(0.18, 0.08, 0.04)},
+		{"title": "Grave Saber", "category": "SWORD", "body": "A quest blade for long-haul outlaw clearing. Earn it by surviving enough fights across runs.", "footer": "Quest reward", "accent": Color(0.42, 0.38, 0.32)},
+		{"title": "Parry Timing", "category": "MOVE", "body": "Slash at the right moment to turn danger into space. Parries cool the fight down and keep you alive.", "footer": "Close-range skill", "accent": Color(0.95, 0.82, 0.34)},
+	])
+
+func _show_gun_cards() -> void:
+	_show_card_grid([
+		{"title": "Revolver", "category": "GUN", "body": "Your Dust Heist sidearm. Most gun skills fire from this single-action revolver.", "footer": "Core weapon", "accent": Color(0.24, 0.11, 0.045)},
+		{"title": "Deadeye", "category": "SHOT", "body": "A steady long shot for picking off distant riflemen before they control the lane.", "footer": "Precision", "accent": Color(0.9, 0.68, 0.32)},
+		{"title": "Quickdraw", "category": "SHOT", "body": "A fast skillshot that rewards clean aim when enemies are closing in.", "footer": "Fast cast", "accent": Color(1.0, 0.86, 0.46)},
+		{"title": "Ricochet", "category": "SHOT", "body": "Banks a bullet through clustered outlaws. Best when the wave starts to crowd you.", "footer": "Crowd control", "accent": Color(0.95, 0.36, 0.1)},
+		{"title": "Fan Hammer", "category": "GUN", "body": "Unlock rapid close-range revolver fire for messy waves and emergency clears.", "footer": "Quest unlock", "accent": Color(1.0, 0.42, 0.12)},
+	])
+
+func _show_information_cards() -> void:
+	_show_card_grid([
+		{"title": "Move", "category": "INPUT", "body": "Use WASD or arrow keys to cross the courtyard and dodge enemy pressure.", "footer": "Keyboard", "accent": Color(0.62, 0.35, 0.16)},
+		{"title": "Dash", "category": "INPUT", "body": "Press Space to burst through danger. Dashing adds heat, so spend it with intent.", "footer": "Space", "accent": Color(0.86, 0.58, 0.28)},
+		{"title": "Slash", "category": "INPUT", "body": "Press J or left mouse to swing your sword. Use it for close kills and clutch parries.", "footer": "J / Mouse", "accent": Color(0.78, 0.45, 0.2)},
+		{"title": "Abilities", "category": "INPUT", "body": "Press 1-4 to cast equipped ability cards. Open Abilities to change the loadout.", "footer": "Slots 1-4", "accent": Color(0.95, 0.78, 0.36)},
+		{"title": "Knife Rusher", "category": "ENEMY", "body": "Closes distance quickly and forces you to move. Cut them before they box you in.", "footer": "Melee threat", "accent": Color(0.86, 0.38, 0.08)},
+		{"title": "Rifleman", "category": "ENEMY", "body": "Controls long lanes with aimed shots. Break line pressure with movement or Deadeye.", "footer": "Range threat", "accent": Color(0.72, 0.38, 0.16)},
+		{"title": "Shotgun Brute", "category": "ENEMY", "body": "Punishes corners and close mistakes. Keep space, dash wide, then strike.", "footer": "Heavy threat", "accent": Color(0.55, 0.18, 0.08)},
+		{"title": "Duelist", "category": "BOSS", "body": "Appears every third wave with a wanted-card intro and a dangerous lunge pattern.", "footer": "Boss wave", "accent": Color(0.72, 0.08, 0.04)},
+	])
 
 func _show_abilities_screen() -> void:
-	_menu_detail.visible = false
+	_cards_scroll.visible = false
 	_quests_panel.visible = false
 	_abilities_panel.visible = true
 	_refresh_ability_buttons()
@@ -547,32 +737,39 @@ func _toggle_ability(ability_id: String) -> void:
 
 func _refresh_ability_buttons() -> void:
 	for ability_id in _ability_ids:
-		if not _ability_rows.has(ability_id):
+		if not _ability_buttons.has(ability_id):
 			continue
-		var row: Dictionary = _ability_rows[ability_id]
-		var icon: SkillIcon = row["icon"]
-		var label: Label = row["label"]
 		var button: Button = _ability_buttons[ability_id]
+		var name_label: Label = _ability_buttons["%s_name" % ability_id]
+		var status_label: Label = _ability_buttons["%s_status" % ability_id]
+		var body_label: Label = _ability_buttons["%s_body" % ability_id]
+		var footer_label: Label = _ability_buttons["%s_footer" % ability_id]
 		var unlocked := _unlocked_abilities.has(ability_id)
 		var equipped_index := _equipped_abilities.find(ability_id)
 		var key_label := str(equipped_index + 1) if equipped_index >= 0 else ""
 		var status := "SLOT %s" % key_label if equipped_index >= 0 else "READY"
+		var footer := "Click to equip"
 		if not unlocked:
 			status = "LOCKED"
-		label.text = "%s  -  %s\n%s" % [
-			_ability_names[ability_id],
-			status,
-			_ability_descriptions[ability_id],
-		]
-		label.modulate = Color(1.0, 1.0, 1.0, 1.0) if unlocked else Color(0.55, 0.48, 0.42, 0.82)
-		icon.modulate = Color(1.0, 1.0, 1.0, 1.0) if unlocked else Color(0.4, 0.36, 0.32, 0.72)
-		icon.set_state(ability_id, key_label, 0.0)
-		button.disabled = not unlocked
+			footer = "Earn from quests"
+		elif equipped_index >= 0:
+			footer = "Equipped to key %s" % key_label
+		name_label.text = _ability_names[ability_id]
+		status_label.text = status
+		body_label.text = _ability_descriptions[ability_id]
+		footer_label.text = footer
+		var label_modulate := Color(1.0, 1.0, 1.0, 1.0) if unlocked else Color(0.78, 0.68, 0.56, 0.95)
+		name_label.modulate = label_modulate
+		status_label.modulate = label_modulate
+		body_label.modulate = label_modulate
+		footer_label.modulate = label_modulate
+		button.disabled = false
+		_apply_button_card_style(button, Color(0.86, 0.58, 0.28), not unlocked)
 
 func _create_quests_panel() -> void:
 	_quests_panel.visible = false
 	_quests_panel.custom_minimum_size = Vector2(440, 308)
-	_quests_panel.add_theme_constant_override("separation", 10)
+	_quests_panel.add_theme_constant_override("separation", 12)
 	_menu_content.add_child(_quests_panel)
 
 	var title := Label.new()
@@ -583,18 +780,23 @@ func _create_quests_panel() -> void:
 	_quests_panel.add_child(title)
 
 	for i in range(4):
+		var card := PanelContainer.new()
+		card.custom_minimum_size = Vector2(500, 96)
+		card.add_theme_stylebox_override("panel", _make_card_style(Color(0.86, 0.58, 0.28)))
+		_quests_panel.add_child(card)
+
 		var label := Label.new()
-		label.custom_minimum_size = Vector2(430, 58)
+		label.custom_minimum_size = Vector2(470, 74)
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		label.add_theme_font_size_override("font_size", 15)
-		label.add_theme_color_override("font_color", Color(0.98, 0.9, 0.76))
+		label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_quest_labels[i] = label
-		_quests_panel.add_child(label)
+		card.add_child(label)
 	_refresh_quest_panel()
 
 func _show_quests_screen() -> void:
-	_menu_detail.visible = false
+	_cards_scroll.visible = false
 	_abilities_panel.visible = false
 	_quests_panel.visible = true
 	_refresh_quest_panel()
@@ -610,7 +812,7 @@ func _refresh_quest_panel() -> void:
 		var progress := int(quest.get("progress", 0))
 		var complete := bool(quest.get("complete", false))
 		var status := "COMPLETE" if complete else "%d/%d" % [progress, target]
-		label.text = "%s  %s\n%s\nReward: %s" % [
+		label.text = "%s\n%s\n%s\nReward: %s" % [
 			quest.get("name", "Quest"),
 			status,
 			quest.get("description", ""),
@@ -624,14 +826,16 @@ func _layout_menu() -> void:
 	_menu_title.position = Vector2((viewport_size.x - title_width) * 0.5, 58.0)
 	_menu_title.size = Vector2(title_width, 88.0)
 
-	var content_width := minf(viewport_size.x - 96.0, 920.0)
-	var content_height := 500.0
-	_menu_content.position = Vector2((viewport_size.x - content_width) * 0.5, maxf(190.0, viewport_size.y * 0.34))
+	var content_width := minf(viewport_size.x - 56.0, 880.0)
+	var content_height := minf(520.0, viewport_size.y - 150.0)
+	_menu_content.position = Vector2((viewport_size.x - content_width) * 0.5, maxf(130.0, viewport_size.y * 0.23))
 	_menu_content.size = Vector2(content_width, content_height)
-	_menu_panel.custom_minimum_size = Vector2(minf(270.0, content_width * 0.34), content_height)
-	_menu_detail.custom_minimum_size = Vector2(maxf(280.0, content_width - _menu_panel.custom_minimum_size.x - 48.0), content_height)
-	_abilities_panel.custom_minimum_size = _menu_detail.custom_minimum_size
-	_quests_panel.custom_minimum_size = _menu_detail.custom_minimum_size
+	_menu_panel.custom_minimum_size = Vector2(minf(220.0, content_width * 0.3), content_height)
+	var right_width := maxf(280.0, content_width - _menu_panel.custom_minimum_size.x - 48.0)
+	_cards_scroll.custom_minimum_size = Vector2(right_width, content_height)
+	_abilities_panel.custom_minimum_size = Vector2(right_width, content_height)
+	_quests_panel.custom_minimum_size = Vector2(right_width, content_height)
+	_cards_grid.columns = 1 if right_width < 520.0 else 2
 
 func _set_gameplay_hud_visible(visible_state: bool) -> void:
 	_health_back.visible = visible_state
