@@ -27,8 +27,25 @@ var invulnerable := false
 
 const PLAYER_RADIUS := 22.0
 const CORRIDOR_HALF_WIDTH := 36.0
+const PLAYER_SPRITE_PATH := "res://assets/characters/player_cowgirl_3d_topdown_v001.png"
+const PLAYER_SPRITE_FORWARD_PATH := "res://assets/characters/player_turnaround/player_cowgirl_forward_3d_topdown_v001.png"
+const PLAYER_SPRITE_BACK_PATH := "res://assets/characters/player_turnaround/player_cowgirl_back_3d_topdown_v001.png"
+const PLAYER_SPRITE_LEFT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_left_3d_topdown_v001.png"
+const PLAYER_SPRITE_RIGHT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_right_3d_topdown_v001.png"
+const PLAYER_SPRITE_ANGLED_PATH := "res://assets/characters/player_turnaround/player_cowgirl_angled_3d_topdown_v001.png"
+const PLAYER_SPRITE_FORWARD_LEFT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_forward_left_3d_topdown_v001.png"
+const PLAYER_SPRITE_FORWARD_RIGHT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_forward_right_3d_topdown_v001.png"
+const PLAYER_SPRITE_BACK_LEFT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_back_left_3d_topdown_v001.png"
+const PLAYER_SPRITE_BACK_RIGHT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_back_right_3d_topdown_v001.png"
+const PLAYER_SPRITE_TOP_LEFT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_top_left_3d_topdown_v001.png"
+const PLAYER_SPRITE_TOP_RIGHT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_top_right_3d_topdown_v001.png"
+const PLAYER_SPRITE_BOTTOM_LEFT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_bottom_left_3d_topdown_v001.png"
+const PLAYER_SPRITE_BOTTOM_RIGHT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_bottom_right_3d_topdown_v001.png"
+const PLAYER_SPRITE_TARGET_HEIGHT := 118.0
 
 var _arena_bounds := Rect2()
+var _character_texture: Texture2D
+var _direction_textures: Dictionary = {}
 
 var _dash_time := 0.0
 var _dash_cooldown_remaining := 0.0
@@ -50,6 +67,7 @@ var _moving := false
 
 func _ready() -> void:
 	z_index = 20
+	_load_character_texture()
 
 func _physics_process(delta: float) -> void:
 	_dash_cooldown_remaining = max(0.0, _dash_cooldown_remaining - delta)
@@ -76,8 +94,13 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	_draw_character()
-	_draw_blade()
+	_draw_character_shadow(_get_character_visual_size())
+	if _character_texture != null:
+		_draw_character_sprite()
+	else:
+		_draw_character()
+	if _character_texture == null or _weapon_active_remaining > 0.0:
+		_draw_blade()
 	if _parry_flash_remaining > 0.0:
 		var flash := _parry_flash_remaining / 0.16
 		draw_arc(Vector2.ZERO, lerpf(58.0, 34.0, flash), 0.0, TAU, 36, Color(1.0, 0.92, 0.62, flash), 5.0)
@@ -264,7 +287,6 @@ func _draw_character() -> void:
 		chest + Vector2(-15.0 + hair_sway * 0.18, 14.0),
 	])
 
-	draw_circle(origin + Vector2(0.0, 10.0), 20.0, Color(0.0, 0.0, 0.0, 0.35))
 	draw_colored_polygon(cape, Color(0.018, 0.014, 0.012, 0.96))
 	draw_colored_polygon(cape_torn_edge, Color(0.09, 0.052, 0.028, 0.82))
 	draw_polyline(PackedVector2Array([cape[0], cape[1], cape[2], cape[3], cape[4], cape[5]]), Color(0.24, 0.15, 0.09, 0.82), 2.0)
@@ -322,6 +344,131 @@ func _draw_character() -> void:
 	draw_line(left_hand, left_hand + facing * 26.0 + Vector2(-8.0, 10.0), Color(0.72, 0.73, 0.68, 0.94), 3.0)
 	draw_line(left_hand + facing * 26.0 + Vector2(-8.0, 10.0), left_hand + facing * 34.0 + Vector2(-10.0, 14.0), Color(0.94, 0.9, 0.74, 0.9), 2.0)
 	draw_circle(saber_hand, 4.0, Color(0.76, 0.58, 0.42, 0.98))
+
+func _load_character_texture() -> void:
+	_character_texture = load(PLAYER_SPRITE_PATH) as Texture2D
+	if _character_texture == null:
+		push_warning("Could not load player character sprite: %s" % PLAYER_SPRITE_PATH)
+		return
+	_direction_textures = {
+		"forward": load(PLAYER_SPRITE_FORWARD_PATH) as Texture2D,
+		"back": load(PLAYER_SPRITE_BACK_PATH) as Texture2D,
+		"left": load(PLAYER_SPRITE_LEFT_PATH) as Texture2D,
+		"right": load(PLAYER_SPRITE_RIGHT_PATH) as Texture2D,
+		"angled": load(PLAYER_SPRITE_ANGLED_PATH) as Texture2D,
+		"forward_left": load(PLAYER_SPRITE_FORWARD_LEFT_PATH) as Texture2D,
+		"forward_right": load(PLAYER_SPRITE_FORWARD_RIGHT_PATH) as Texture2D,
+		"back_left": load(PLAYER_SPRITE_BACK_LEFT_PATH) as Texture2D,
+		"back_right": load(PLAYER_SPRITE_BACK_RIGHT_PATH) as Texture2D,
+		"top_left": load(PLAYER_SPRITE_TOP_LEFT_PATH) as Texture2D,
+		"top_right": load(PLAYER_SPRITE_TOP_RIGHT_PATH) as Texture2D,
+		"bottom_left": load(PLAYER_SPRITE_BOTTOM_LEFT_PATH) as Texture2D,
+		"bottom_right": load(PLAYER_SPRITE_BOTTOM_RIGHT_PATH) as Texture2D,
+	}
+
+func _draw_character_sprite() -> void:
+	var texture := _get_character_texture_for_direction()
+	var visual_size := _get_scaled_texture_size(texture)
+	var draw_position := Vector2(-visual_size.x * 0.5, -visual_size.y * 0.5 + 8.0)
+	_draw_running_sprite(texture, draw_position, visual_size)
+
+func _draw_running_sprite(texture: Texture2D, draw_position: Vector2, visual_size: Vector2) -> void:
+	var movement_ratio: float = clampf(velocity.length() / maxf(max_speed, 1.0), 0.0, 1.0)
+	if texture == null or movement_ratio < 0.08:
+		draw_texture_rect(texture, Rect2(draw_position, visual_size), false)
+		return
+
+	var texture_size := texture.get_size()
+	var phase := _anim_time * 16.0
+	var step := sin(phase)
+	var bob := absf(step) * 3.2 * movement_ratio
+	var torso_ratio := 0.52
+	var torso_src := Rect2(Vector2.ZERO, Vector2(texture_size.x, texture_size.y * torso_ratio))
+	var torso_dest := Rect2(draw_position + Vector2(0.0, -bob), Vector2(visual_size.x, visual_size.y * torso_ratio + bob))
+	draw_texture_rect_region(texture, torso_dest, torso_src)
+
+	var lower_src_y := texture_size.y * torso_ratio
+	var lower_src_h := texture_size.y - lower_src_y
+	var half_src_w := texture_size.x * 0.5
+	var lower_dest_y := draw_position.y + visual_size.y * torso_ratio - 2.0
+	var lower_dest_h := visual_size.y * (1.0 - torso_ratio) + 1.0
+	var half_dest_w := visual_size.x * 0.5
+	var stride := step * 10.0 * movement_ratio
+	var lift := absf(step) * 5.0 * movement_ratio
+
+	var left_src := Rect2(Vector2(0.0, lower_src_y), Vector2(half_src_w, lower_src_h))
+	var right_src := Rect2(Vector2(half_src_w, lower_src_y), Vector2(half_src_w, lower_src_h))
+	var left_dest := Rect2(Vector2(draw_position.x - stride * 0.55, lower_dest_y + lift), Vector2(half_dest_w + 2.0, lower_dest_h))
+	var right_dest := Rect2(Vector2(draw_position.x + half_dest_w + stride * 0.55 - 2.0, lower_dest_y - lift), Vector2(half_dest_w + 2.0, lower_dest_h))
+	draw_texture_rect_region(texture, left_dest, left_src)
+	draw_texture_rect_region(texture, right_dest, right_src)
+	_draw_run_contacts(visual_size, step, movement_ratio)
+
+func _draw_run_contacts(visual_size: Vector2, step: float, movement_ratio: float) -> void:
+	var base_y := visual_size.y * 0.46 + 8.0
+	var foot_spread := clampf(visual_size.x * 0.26, 12.0, 24.0)
+	var stride := step * 10.0 * movement_ratio
+	for i in range(2):
+		var side := -1.0 if i == 0 else 1.0
+		var phase_sign := side
+		var foot := Vector2(side * foot_spread + stride * phase_sign, base_y - absf(step * phase_sign) * 3.0)
+		draw_set_transform(foot, 0.0, Vector2(10.0 + movement_ratio * 5.0, 3.0))
+		draw_circle(Vector2.ZERO, 1.0, Color(0.035, 0.018, 0.008, 0.18 + movement_ratio * 0.16))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if movement_ratio > 0.35 and i == 0:
+			draw_circle(foot - Vector2(stride * 0.4, 2.0), 2.5, Color(0.58, 0.36, 0.16, 0.16))
+
+func _get_character_visual_size() -> Vector2:
+	if _character_texture != null:
+		return _get_scaled_texture_size(_get_character_texture_for_direction())
+	return Vector2(72.0, 110.0)
+
+func _get_character_texture_for_direction() -> Texture2D:
+	var key := "angled"
+	var facing := _dash_direction.normalized()
+	if absf(facing.x) > 0.35 and absf(facing.y) > 0.35:
+		if facing.y > 0.0:
+			key = "bottom_right" if facing.x > 0.0 else "bottom_left"
+		else:
+			key = "top_right" if facing.x > 0.0 else "top_left"
+	elif absf(facing.x) > absf(facing.y) * 1.25:
+		key = "right" if facing.x > 0.0 else "left"
+	elif absf(facing.y) > absf(facing.x) * 1.25:
+		key = "forward" if facing.y > 0.0 else "back"
+	var directional_texture: Texture2D = _direction_textures.get(key, null)
+	if directional_texture != null:
+		return directional_texture
+	return _character_texture
+
+func _get_scaled_texture_size(texture: Texture2D) -> Vector2:
+	if texture == null:
+		return Vector2(72.0, 110.0)
+	var texture_size := texture.get_size()
+	var sprite_scale := PLAYER_SPRITE_TARGET_HEIGHT / maxf(texture_size.y, 1.0)
+	return texture_size * sprite_scale
+
+func _draw_character_shadow(fallback_size: Vector2) -> void:
+	var visual_size := _get_largest_character_sprite_size(fallback_size)
+	var width := clampf(visual_size.x * 0.72, 34.0, 96.0)
+	var height := clampf(visual_size.y * 0.18, 12.0, 28.0)
+	var y_offset := clampf(visual_size.y * 0.32, 22.0, 42.0)
+	draw_set_transform(Vector2(0.0, y_offset), 0.0, Vector2(width * 0.5, height * 0.5))
+	draw_circle(Vector2.ZERO, 1.0, Color(0.035, 0.018, 0.008, 0.34))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func _get_largest_character_sprite_size(fallback_size: Vector2) -> Vector2:
+	var largest := fallback_size
+	for child in get_children():
+		var child_size := Vector2.ZERO
+		if child is Sprite2D and child.texture != null:
+			child_size = child.texture.get_size() * child.scale.abs()
+		elif child is AnimatedSprite2D and child.sprite_frames != null:
+			var frame_texture: Texture2D = child.sprite_frames.get_frame_texture(child.animation, child.frame)
+			if frame_texture != null:
+				child_size = frame_texture.get_size() * child.scale.abs()
+		if child_size.x * child_size.y > largest.x * largest.y:
+			largest = child_size
+	return largest
 
 func _draw_blade() -> void:
 	if not _is_blade_unsheathed():

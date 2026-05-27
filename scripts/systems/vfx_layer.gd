@@ -5,6 +5,21 @@ var _pulses: Array[Dictionary] = []
 var _beams: Array[Dictionary] = []
 var _blood_stains: Array[Dictionary] = []
 const MAX_BLOOD_STAINS := 15
+const BLOOD_TEXTURE_PATHS := [
+	"res://assets/vfx/blood_realistic_splat_01.png",
+	"res://assets/vfx/blood_realistic_splat_02.png",
+	"res://assets/vfx/blood_realistic_splat_03.png",
+]
+
+var _blood_textures: Array[Texture2D] = []
+
+func _ready() -> void:
+	for path in BLOOD_TEXTURE_PATHS:
+		var texture := load(path) as Texture2D
+		if texture == null:
+			push_warning("Could not load blood texture: %s" % path)
+		else:
+			_blood_textures.append(texture)
 
 func _process(delta: float) -> void:
 	for pulse in _pulses:
@@ -20,9 +35,18 @@ func _draw() -> void:
 		var origin: Vector2 = stain["origin"]
 		var color: Color = stain["color"]
 		var radius: float = stain["radius"]
-		draw_circle(origin, radius, color)
+		var texture: Texture2D = stain.get("texture", null)
+		if texture != null:
+			var size: Vector2 = texture.get_size() * stain["scale"]
+			draw_set_transform(origin, stain["rotation"], Vector2(1.0, stain["squash"]))
+			draw_texture_rect(texture, Rect2(-size * 0.5, size), false, Color(0.9, 0.74, 0.62, 0.92))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		draw_circle(origin, radius * 0.42, color.darkened(0.18))
+		draw_arc(origin, radius * 0.92, 0.0, TAU, 32, Color(0.36, 0.055, 0.018, 0.22), 3.0)
 		for drop in stain["drops"]:
-			draw_circle(origin + drop["offset"], drop["radius"], color.darkened(drop["darken"]))
+			var drop_origin: Vector2 = origin + drop["offset"]
+			draw_circle(drop_origin, drop["radius"], color.darkened(drop["darken"]))
+			draw_circle(drop_origin + Vector2(-drop["radius"] * 0.26, -drop["radius"] * 0.3), drop["radius"] * 0.28, Color(0.58, 0.02, 0.01, 0.18))
 
 	for pulse in _pulses:
 		var t: float = pulse["age"] / pulse["life"]
@@ -57,12 +81,20 @@ func blood_spill(origin: Vector2, amount: int = 9) -> void:
 		})
 	_blood_stains.append({
 		"origin": origin,
-		"radius": randf_range(13.0, 24.0),
-		"color": Color(0.24, 0.006, 0.004, 0.72),
+		"radius": randf_range(16.0, 30.0),
+		"color": Color(0.36, 0.004, 0.002, 0.78),
+		"texture": _blood_textures.pick_random() if not _blood_textures.is_empty() else null,
+		"rotation": randf() * TAU,
+		"scale": randf_range(0.38, 0.58),
+		"squash": randf_range(0.72, 1.08),
 		"drops": drops,
 	})
 	while _blood_stains.size() > MAX_BLOOD_STAINS:
 		_blood_stains.pop_front()
+
+func clear_blood_stains() -> void:
+	_blood_stains.clear()
+	queue_redraw()
 
 func shockwave(origin: Vector2, color: Color) -> void:
 	_pulses.append({

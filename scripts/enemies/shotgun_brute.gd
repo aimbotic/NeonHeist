@@ -1,5 +1,7 @@
 extends "res://scripts/enemies/base_enemy.gd"
 
+const ENEMY_SPRITE_SLUG := "enemy_shotgun_brute_male"
+
 var _fire_timer := 0.0
 var _windup_timer := 0.0
 var _aim_direction := Vector2.RIGHT
@@ -10,6 +12,7 @@ func _ready() -> void:
 	speed = 122.0
 	contact_damage = 18.0
 	z_index = 13
+	_load_enemy_turnaround_textures(ENEMY_SPRITE_SLUG, 118.0)
 
 func _physics_process(delta: float) -> void:
 	super(delta)
@@ -56,6 +59,7 @@ func _fire_shotgun(distance: float) -> void:
 			vfx_layer.beam(global_position + pellet_dir * 18.0, global_position + pellet_dir * 300.0, Color(0.95, 0.5, 0.18))
 
 func _draw() -> void:
+	_draw_character_shadow(1.14, Vector2(70.0, 82.0))
 	var color := _health_color(Color(0.82, 0.34, 0.08))
 	var facing := _aim_direction.normalized()
 	var side := facing.orthogonal()
@@ -65,6 +69,9 @@ func _draw() -> void:
 		for i in range(5):
 			draw_line(Vector2.ZERO, facing.rotated(lerpf(-0.52, 0.52, float(i) / 4.0)) * 180.0, Color(0.9, 0.42, 0.1, 0.36), 3.0)
 
+	if _has_enemy_sprite():
+		_draw_enemy_sprite(facing)
+		return
 	_draw_enemy_human_legs(facing, side, color, 1.14, 0.7)
 	var coat := PackedVector2Array([
 		facing * 21.0,

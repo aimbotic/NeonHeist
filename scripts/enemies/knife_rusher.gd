@@ -1,5 +1,7 @@
 extends "res://scripts/enemies/base_enemy.gd"
 
+const ENEMY_SPRITE_SLUG := "enemy_knife_rusher_male"
+
 var _patrol_angle := 0.0
 var _home := Vector2.ZERO
 var _was_chasing := false
@@ -13,6 +15,7 @@ func _ready() -> void:
 	_home = global_position
 	_patrol_angle = randf() * TAU
 	z_index = 12
+	_load_enemy_turnaround_textures(ENEMY_SPRITE_SLUG, 96.0)
 
 func _physics_process(delta: float) -> void:
 	super(delta)
@@ -41,6 +44,7 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	_draw_character_shadow(0.82)
 	var color := _health_color(Color(0.68, 0.36, 0.16))
 	var facing := Vector2.RIGHT
 	if player != null and global_position.distance_squared_to(player.global_position) > 1.0:
@@ -50,6 +54,9 @@ func _draw() -> void:
 		var pulse := _swarm_warning_time / 0.24
 		draw_circle(Vector2.ZERO, lerpf(38.0, 24.0, pulse), Color(0.72, 0.08, 0.04, 0.28 * pulse))
 		draw_arc(Vector2.ZERO, lerpf(44.0, 26.0, pulse), 0.0, TAU, 24, Color(0.82, 0.32, 0.1, 0.78 * pulse), 4.0)
+	if _has_enemy_sprite():
+		_draw_enemy_sprite(facing)
+		return
 	_draw_enemy_human_legs(facing, side, color, 0.82, 1.15)
 
 	var coat := PackedVector2Array([

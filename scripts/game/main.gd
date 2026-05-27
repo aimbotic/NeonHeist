@@ -12,14 +12,16 @@ const SaveSystemScene := preload("res://scripts/systems/save_system.gd")
 const VfxLayerScene := preload("res://scripts/systems/vfx_layer.gd")
 const HudScene := preload("res://scripts/ui/hud.gd")
 const VaultGeneratorScene := preload("res://scripts/game/vault_generator.gd")
+const SAND_TEXTURE_PATH := "res://assets/environments/sand_realistic_tile.png"
+const WOOD_TEXTURE_PATH := "res://assets/environments/wood_weathered_realistic_tile.png"
+const PORCH_TEXTURE_PATH := "res://assets/environments/porch_planks_realistic_tile.png"
+const FENCE_TEXTURE_PATH := "res://assets/environments/fence_rough_realistic_tile.png"
 
 class StaticBackdropCache extends Node2D:
 	var owner_main: Node2D
 
 	func _draw() -> void:
-		if owner_main == null or owner_main.vault_data.is_empty():
-			return
-		owner_main._draw_dark_western_backdrop()
+		pass
 
 const QUEST_DEFINITIONS := [
 	{
@@ -146,9 +148,14 @@ var unlocked_blades: Array[String] = ["saber"]
 var equipped_blade := "saber"
 var unlocked_guns: Array[String] = ["revolver"]
 var equipped_gun := "revolver"
+var sand_texture: Texture2D
+var wood_texture: Texture2D
+var porch_texture: Texture2D
+var fence_texture: Texture2D
 
 func _ready() -> void:
 	_configure_input()
+	_load_environment_textures()
 	RenderingServer.set_default_clear_color(Color(0.025, 0.018, 0.014, 1.0))
 
 	save_system = SaveSystemScene.new()
@@ -203,12 +210,30 @@ func _draw() -> void:
 		return
 
 	var arena: Rect2 = vault_data["arena"]
-	draw_rect(arena, Color(0.78, 0.55, 0.24, 0.98), true)
-	draw_rect(arena.grow(-14.0), Color(1.0, 0.78, 0.36, 0.22), false, 3.0)
+	_draw_dark_western_backdrop()
+	draw_rect(arena, Color(0.69, 0.43, 0.18, 1.0), true)
+	if sand_texture != null:
+		draw_texture_rect(sand_texture, arena, true, Color(0.96, 0.86, 0.68, 0.95))
+	draw_rect(arena, Color(0.42, 0.24, 0.09, 0.16), true)
+	draw_rect(arena.grow(-14.0), Color(1.0, 0.82, 0.46, 0.16), false, 3.0)
 	draw_rect(arena, Color(0.43, 0.24, 0.1, 0.72), false, 8.0)
-	draw_rect(arena.grow(-42.0), Color(1.0, 0.86, 0.48, 0.2), false, 2.0)
+	draw_rect(arena.grow(-42.0), Color(1.0, 0.9, 0.56, 0.14), false, 2.0)
 
 	_draw_sand_detail(arena)
+
+func _load_environment_textures() -> void:
+	sand_texture = load(SAND_TEXTURE_PATH) as Texture2D
+	if sand_texture == null:
+		push_warning("Could not load sand texture: %s" % SAND_TEXTURE_PATH)
+	wood_texture = load(WOOD_TEXTURE_PATH) as Texture2D
+	if wood_texture == null:
+		push_warning("Could not load wood texture: %s" % WOOD_TEXTURE_PATH)
+	porch_texture = load(PORCH_TEXTURE_PATH) as Texture2D
+	if porch_texture == null:
+		push_warning("Could not load porch texture: %s" % PORCH_TEXTURE_PATH)
+	fence_texture = load(FENCE_TEXTURE_PATH) as Texture2D
+	if fence_texture == null:
+		push_warning("Could not load fence texture: %s" % FENCE_TEXTURE_PATH)
 
 func _draw_dark_western_backdrop() -> void:
 	var bounds := _get_vault_bounds().grow(520.0)
@@ -254,6 +279,7 @@ func _draw_old_west_perimeter(bounds: Rect2, arena: Rect2) -> void:
 
 	var courtyard_shadow := arena.grow(34.0)
 	draw_rect(courtyard_shadow, Color(0.08, 0.035, 0.018, 0.28), false, 16.0)
+	_draw_courtyard_fences(arena)
 
 	var top_y := arena.position.y - 248.0
 	var bottom_y := arena.end.y + 58.0
@@ -281,6 +307,75 @@ func _draw_old_west_perimeter(bounds: Rect2, arena: Rect2) -> void:
 			continue
 		_draw_western_prop(pos, i)
 
+func _draw_courtyard_fences(arena: Rect2) -> void:
+	var fence_color := Color(0.72, 0.44, 0.22, 0.88)
+	var shadow_color := Color(0.025, 0.012, 0.006, 0.34)
+	var top_y := arena.position.y - 48.0
+	var bottom_y := arena.end.y + 48.0
+	var left_x := arena.position.x - 58.0
+	var right_x := arena.end.x + 58.0
+	_draw_fence_run(Vector2(arena.position.x - 70.0, top_y), Vector2(arena.end.x + 70.0, top_y), fence_color, shadow_color)
+	_draw_fence_run(Vector2(arena.position.x - 70.0, bottom_y), Vector2(arena.end.x + 70.0, bottom_y), fence_color, shadow_color)
+	_draw_fence_run(Vector2(left_x, arena.position.y - 52.0), Vector2(left_x, arena.end.y + 52.0), fence_color, shadow_color)
+	_draw_fence_run(Vector2(right_x, arena.position.y - 52.0), Vector2(right_x, arena.end.y + 52.0), fence_color, shadow_color)
+
+func _draw_fence_run(start: Vector2, end: Vector2, tint: Color, shadow: Color) -> void:
+	var direction := (end - start).normalized()
+	var side := direction.orthogonal()
+	var length := start.distance_to(end)
+	draw_line(start + side * 14.0 + Vector2(9.0, 12.0), end + side * 14.0 + Vector2(9.0, 12.0), shadow, 9.0)
+	draw_line(start - side * 14.0 + Vector2(9.0, 12.0), end - side * 14.0 + Vector2(9.0, 12.0), shadow, 9.0)
+	_draw_textured_rail(start + side * 14.0, end + side * 14.0, tint, 8.0)
+	_draw_textured_rail(start - side * 14.0, end - side * 14.0, tint.darkened(0.1), 8.0)
+	var post_count: int = max(2, int(length / 92.0))
+	for i in range(post_count + 1):
+		var t := float(i) / float(post_count)
+		var post_center := start.lerp(end, t)
+		_draw_textured_post(post_center - side * 26.0, 52.0, 10.0, tint.darkened(0.03))
+
+func _draw_wood_panel_rect(rect: Rect2, tint: Color) -> void:
+	draw_rect(rect, tint.darkened(0.28), true)
+	if wood_texture != null:
+		draw_texture_rect(wood_texture, rect, true, tint)
+	else:
+		draw_rect(rect, tint, true)
+	draw_rect(rect, Color(0.018, 0.009, 0.004, 0.24), false, 2.0)
+	draw_line(rect.position + Vector2(0.0, 3.0), rect.position + Vector2(rect.size.x, 3.0), Color(1.0, 0.72, 0.34, 0.16), 2.0)
+
+func _draw_porch_rect(rect: Rect2) -> void:
+	draw_rect(Rect2(rect.position + Vector2(8.0, 10.0), rect.size), Color(0.025, 0.012, 0.006, 0.32), true)
+	if porch_texture != null:
+		draw_texture_rect(porch_texture, rect, true, Color(0.78, 0.48, 0.24, 0.96))
+	else:
+		draw_rect(rect, Color(0.12, 0.06, 0.03, 0.95), true)
+	for i in range(4):
+		var y := rect.position.y + 5.0 + i * rect.size.y / 4.0
+		draw_line(Vector2(rect.position.x + 5.0, y), Vector2(rect.end.x - 5.0, y + sin(i * 1.7) * 2.0), Color(0.025, 0.012, 0.006, 0.36), 2.0)
+	draw_rect(rect, Color(0.9, 0.58, 0.25, 0.34), false, 2.0)
+
+func _draw_textured_post(center_top: Vector2, height: float, width: float, tint: Color) -> void:
+	var rect := Rect2(center_top - Vector2(width * 0.5, 0.0), Vector2(width, height))
+	draw_rect(Rect2(rect.position + Vector2(5.0, 6.0), rect.size), Color(0.018, 0.008, 0.004, 0.32), true)
+	if fence_texture != null:
+		draw_texture_rect(fence_texture, rect, true, tint)
+	else:
+		draw_rect(rect, tint, true)
+	draw_rect(rect, Color(0.02, 0.01, 0.005, 0.44), false, 1.5)
+
+func _draw_textured_rail(start: Vector2, end: Vector2, tint: Color, width: float) -> void:
+	var rail_direction := end - start
+	var length := rail_direction.length()
+	if length <= 0.1:
+		return
+	draw_set_transform(start + rail_direction * 0.5, rail_direction.angle(), Vector2.ONE)
+	var rect := Rect2(Vector2(-length * 0.5, -width * 0.5), Vector2(length, width))
+	if fence_texture != null:
+		draw_texture_rect(fence_texture, rect, true, tint)
+	else:
+		draw_rect(rect, tint, true)
+	draw_rect(rect, Color(0.02, 0.01, 0.005, 0.42), false, 1.0)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
 func _draw_saloon_front(position: Vector2, size: Vector2, index: int) -> void:
 	var body := Rect2(position, size)
 	var roof_height := 34.0
@@ -289,13 +384,16 @@ func _draw_saloon_front(position: Vector2, size: Vector2, index: int) -> void:
 	var trim_color := Color(0.55, 0.31, 0.15, 0.82)
 	var shadow_color := Color(0.035, 0.018, 0.012, 0.96)
 
-	draw_rect(body, plank_color, true)
-	draw_rect(Rect2(position + Vector2(-8.0, -roof_height), Vector2(size.x + 16.0, roof_height)), Color(0.075, 0.035, 0.02, 0.98), true)
-	draw_rect(body, Color(0.48, 0.25, 0.1, 0.72), false, 3.0)
+	_draw_wood_panel_rect(body, plank_color)
+	var roof := Rect2(position + Vector2(-8.0, -roof_height), Vector2(size.x + 16.0, roof_height))
+	_draw_wood_panel_rect(roof, Color(0.36, 0.17, 0.08, 0.98))
+	draw_rect(roof, Color(0.02, 0.011, 0.006, 0.35), true)
+	draw_rect(body, Color(0.74, 0.42, 0.18, 0.58), false, 3.0)
 
 	for plank in range(6):
 		var x := position.x + 22.0 + plank * (size.x - 44.0) / 5.0
-		draw_line(Vector2(x, position.y), Vector2(x, position.y + size.y), Color(0.08, 0.035, 0.018, 0.42), 2.0)
+		draw_line(Vector2(x, position.y), Vector2(x, position.y + size.y), Color(0.025, 0.012, 0.006, 0.46), 2.0)
+		draw_line(Vector2(x + 2.0, position.y + 3.0), Vector2(x + 2.0, position.y + size.y - 5.0), Color(0.92, 0.58, 0.26, 0.18), 1.0)
 
 	var sign_rect := Rect2(position + Vector2(size.x * 0.26, 18.0), Vector2(size.x * 0.48, 32.0))
 	draw_rect(sign_rect, Color(0.28, 0.12, 0.05, 0.98), true)
@@ -317,23 +415,23 @@ func _draw_saloon_front(position: Vector2, size: Vector2, index: int) -> void:
 		draw_line(window.position + Vector2(window.size.x * 0.5, 0.0), window.position + Vector2(window.size.x * 0.5, window.size.y), Color(0.82, 0.55, 0.24, 0.35), 2.0)
 
 	var porch := Rect2(position + Vector2(-16.0, size.y - porch_height), Vector2(size.x + 32.0, porch_height))
-	draw_rect(porch, Color(0.11, 0.052, 0.024, 0.95), true)
+	_draw_porch_rect(porch)
 	for post in range(4):
 		var px := porch.position.x + 20.0 + post * (porch.size.x - 40.0) / 3.0
-		draw_line(Vector2(px, porch.position.y), Vector2(px, position.y + size.y + 18.0), trim_color, 5.0)
-	draw_line(porch.position, porch.position + Vector2(porch.size.x, 0.0), Color(0.76, 0.45, 0.2, 0.5), 3.0)
+		_draw_textured_post(Vector2(px, porch.position.y - 4.0), position.y + size.y + 18.0 - porch.position.y + 4.0, 7.0, trim_color)
+	draw_line(porch.position, porch.position + Vector2(porch.size.x, 0.0), Color(0.9, 0.6, 0.28, 0.42), 3.0)
 
 func _draw_side_storefront(position: Vector2, size: Vector2, direction: float, index: int) -> void:
 	var body := Rect2(position, size)
 	var front_x := position.x if direction < 0.0 else position.x + size.x
 	var fade_x := position.x + size.x if direction < 0.0 else position.x
-	draw_rect(body, Color(0.11, 0.052, 0.026, 0.94), true)
-	draw_rect(body, Color(0.42, 0.22, 0.1, 0.68), false, 3.0)
-	draw_line(Vector2(front_x, position.y - 18.0), Vector2(front_x, position.y + size.y + 16.0), Color(0.62, 0.35, 0.16, 0.78), 7.0)
+	_draw_wood_panel_rect(body, Color(0.5, 0.28, 0.13, 0.94))
+	draw_rect(body, Color(0.64, 0.35, 0.16, 0.48), false, 3.0)
+	_draw_textured_post(Vector2(front_x, position.y - 18.0), size.y + 34.0, 9.0, Color(0.66, 0.38, 0.18, 0.88))
 	draw_line(Vector2(fade_x, position.y), Vector2(fade_x, position.y + size.y), Color(0.02, 0.012, 0.009, 0.5), 14.0)
 	for floor_index in range(3):
 		var y := position.y + 42.0 + floor_index * 58.0
-		draw_line(Vector2(position.x + 14.0, y), Vector2(position.x + size.x - 14.0, y + sin(index + floor_index) * 5.0), Color(0.58, 0.32, 0.14, 0.42), 4.0)
+		draw_line(Vector2(position.x + 14.0, y), Vector2(position.x + size.x - 14.0, y + sin(index + floor_index) * 5.0), Color(0.92, 0.56, 0.25, 0.3), 4.0)
 	var hanging_sign := Rect2(Vector2(front_x - direction * 72.0 - 36.0, position.y + 36.0), Vector2(72.0, 34.0))
 	draw_line(Vector2(front_x, position.y + 30.0), hanging_sign.position + Vector2(36.0, 0.0), Color(0.42, 0.22, 0.1, 0.88), 3.0)
 	draw_rect(hanging_sign, Color(0.23, 0.1, 0.042, 0.98), true)
@@ -376,14 +474,14 @@ func _draw_sand_detail(arena: Rect2) -> void:
 	for i in range(16):
 		var y := lerpf(arena.position.y + 90.0, arena.end.y - 90.0, float(i) / 15.0)
 		var wave := sin(i * 1.8) * 34.0
-		var color := Color(1.0, 0.78, 0.38, 0.22) if i % 2 == 0 else Color(0.46, 0.27, 0.11, 0.16)
-		draw_line(Vector2(arena.position.x + 70.0, y), Vector2(arena.end.x - 70.0, y + wave), color, 7.0)
+		var color := Color(1.0, 0.84, 0.5, 0.1) if i % 2 == 0 else Color(0.36, 0.2, 0.08, 0.08)
+		draw_line(Vector2(arena.position.x + 70.0, y), Vector2(arena.end.x - 70.0, y + wave), color, 5.0)
 
-	for i in range(72):
+	for i in range(96):
 		var x := arena.position.x + float((i * 173) % int(arena.size.x - 160.0)) + 80.0
 		var y := arena.position.y + float((i * 97) % int(arena.size.y - 160.0)) + 80.0
-		var radius := 2.0 + float((i * 11) % 5)
-		var tint := Color(0.38, 0.22, 0.09, 0.22) if i % 3 == 0 else Color(1.0, 0.84, 0.48, 0.26)
+		var radius := 1.0 + float((i * 11) % 4)
+		var tint := Color(0.28, 0.16, 0.06, 0.12) if i % 3 == 0 else Color(1.0, 0.88, 0.58, 0.12)
 		draw_circle(Vector2(x, y), radius, tint)
 
 	for i in range(18):
@@ -393,15 +491,15 @@ func _draw_sand_detail(arena: Rect2) -> void:
 		var angle := -0.2 + sin(i * 2.1) * 0.35
 		var start := Vector2(x, y)
 		var end := start + Vector2.RIGHT.rotated(angle) * length
-		draw_line(start, end, Color(0.38, 0.2, 0.075, 0.22), 3.0)
-		draw_line(start + Vector2(0, 5), end + Vector2(0, 5), Color(1.0, 0.82, 0.42, 0.18), 2.0)
+		draw_line(start, end, Color(0.32, 0.18, 0.07, 0.13), 2.0)
+		draw_line(start + Vector2(0, 5), end + Vector2(0, 5), Color(1.0, 0.84, 0.5, 0.09), 1.5)
 
 	for i in range(10):
 		var x := arena.position.x + float((i * 337) % int(arena.size.x - 260.0)) + 130.0
 		var y := arena.position.y + float((i * 211) % int(arena.size.y - 260.0)) + 130.0
 		var rock := Rect2(Vector2(x, y), Vector2(18.0 + (i % 4) * 7.0, 8.0 + (i % 3) * 5.0))
-		draw_rect(rock, Color(0.13, 0.07, 0.04, 0.42), true)
-		draw_rect(rock, Color(0.54, 0.31, 0.16, 0.28), false, 1.5)
+		draw_rect(rock, Color(0.13, 0.075, 0.045, 0.26), true)
+		draw_rect(rock, Color(0.54, 0.34, 0.18, 0.18), false, 1.5)
 
 func _get_vault_bounds() -> Rect2:
 	return vault_data["arena"]
@@ -453,6 +551,7 @@ func _start_run() -> void:
 	duelists_defeated = 0
 	director.reset()
 	program_system.reset()
+	vfx_layer.clear_blood_stains()
 
 	for child in enemy_root.get_children():
 		child.queue_free()

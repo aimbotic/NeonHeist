@@ -1,5 +1,7 @@
 extends "res://scripts/enemies/base_enemy.gd"
 
+const ENEMY_SPRITE_SLUG := "enemy_rifleman_male"
+
 var _fire_timer := 0.0
 var _charge_timer := 0.0
 var _aim_angle := 0.0
@@ -11,6 +13,7 @@ func _ready() -> void:
 	speed = 0.0
 	contact_damage = 0.0
 	z_index = 11
+	_load_enemy_turnaround_textures(ENEMY_SPRITE_SLUG, 104.0)
 
 func _physics_process(delta: float) -> void:
 	super(delta)
@@ -42,6 +45,7 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	_draw_character_shadow(0.9)
 	var color := _health_color(Color(0.72, 0.38, 0.16))
 	var facing := Vector2.RIGHT.rotated(_aim_angle)
 	var side := facing.orthogonal()
@@ -51,6 +55,9 @@ func _draw() -> void:
 		draw_line(Vector2.ZERO, Vector2.RIGHT.rotated(_aim_angle) * 620.0, warning_color, lerpf(2.0, 6.0, charge))
 		draw_arc(Vector2.ZERO, lerpf(36.0, 22.0, charge), 0.0, TAU, 28, warning_color, 4.0)
 
+	if _has_enemy_sprite():
+		_draw_enemy_sprite(facing)
+		return
 	var poncho := PackedVector2Array([
 		facing * 19.0,
 		side * 17.0 + facing * 2.0,

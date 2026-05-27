@@ -1,5 +1,7 @@
 extends "res://scripts/enemies/base_enemy.gd"
 
+const ENEMY_SPRITE_SLUG := "enemy_duelist_male"
+
 var _strafe_sign := 1.0
 var _draw_timer := 0.0
 var _dash_timer := 0.0
@@ -13,6 +15,7 @@ func _ready() -> void:
 	contact_damage = 22.0
 	_strafe_sign = -1.0 if randf() < 0.5 else 1.0
 	z_index = 14
+	_load_enemy_turnaround_textures(ENEMY_SPRITE_SLUG, 112.0)
 
 func _physics_process(delta: float) -> void:
 	super(delta)
@@ -58,6 +61,7 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
+	_draw_character_shadow(1.06, Vector2(64.0, 86.0))
 	var color := _health_color(Color(0.95, 0.08, 0.035))
 	var facing := _duel_direction.normalized()
 	if player != null and _draw_timer <= 0.0 and _dash_timer <= 0.0:
@@ -70,6 +74,9 @@ func _draw() -> void:
 	elif _dash_timer > 0.0:
 		draw_line(-facing * 32.0, -facing * 76.0, Color(0.82, 0.08, 0.035, 0.62), 8.0)
 
+	if _has_enemy_sprite():
+		_draw_enemy_sprite(facing)
+		return
 	_draw_enemy_human_legs(facing, side, color, 1.06, 1.2)
 	var cloak := PackedVector2Array([
 		facing * 28.0,
