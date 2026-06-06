@@ -41,7 +41,7 @@ func _physics_process(delta: float) -> void:
 	velocity = desired * speed * (1.0 + alert_level * 0.12) * _speed_multiplier() * warning_multiplier
 	move_and_slide()
 	_try_contact_damage()
-	queue_redraw()
+	_request_enemy_visual_redraw()
 
 func _draw() -> void:
 	_draw_character_shadow(0.82)
@@ -54,8 +54,14 @@ func _draw() -> void:
 		var pulse := _swarm_warning_time / 0.24
 		draw_circle(Vector2.ZERO, lerpf(38.0, 24.0, pulse), Color(0.72, 0.08, 0.04, 0.28 * pulse))
 		draw_arc(Vector2.ZERO, lerpf(44.0, 26.0, pulse), 0.0, TAU, 24, Color(0.82, 0.32, 0.1, 0.78 * pulse), 4.0)
+		_draw_swarm_warning_wedge(facing, side, pulse)
 	if _has_enemy_sprite():
-		_draw_enemy_sprite(facing)
+		var warning_ratio := _swarm_warning_time / 0.24
+		var pose_scale := Vector2(1.0 + warning_ratio * 0.1, 1.0 - warning_ratio * 0.08)
+		_draw_enemy_sprite(facing, -facing * 5.0 * warning_ratio, pose_scale, side.x * 0.03 * warning_ratio)
+		if _swarm_warning_time > 0.0:
+			_draw_swarm_warning_cues(facing, side, warning_ratio)
+		_draw_enemy_role_silhouette_accent(facing, "knife_rusher", Color(0.86, 0.38, 0.08), 0.5 + warning_ratio * 0.5)
 		return
 	_draw_enemy_human_legs(facing, side, color, 0.82, 1.15)
 
@@ -82,3 +88,45 @@ func _draw() -> void:
 	draw_line(side * 11.0 + facing * 2.0, side * 23.0 - facing * 2.0, Color(0.035, 0.022, 0.016, 1.0), 4.0)
 	draw_line(facing * 18.0 - side * 4.0, facing * 32.0 - side * 2.0, Color(0.14, 0.075, 0.035), 5.0)
 	draw_line(facing * 23.0 - side * 5.0, facing * 38.0 - side * 1.0, Color(0.82, 0.48, 0.18), 2.0)
+	_draw_enemy_role_silhouette_accent(facing, "knife_rusher", Color(0.86, 0.38, 0.08), 0.58)
+	if _swarm_warning_time > 0.0:
+		_draw_swarm_warning_cues(facing, side, _swarm_warning_time / 0.24)
+
+func _draw_swarm_warning_cues(facing: Vector2, side: Vector2, pulse: float) -> void:
+	var alpha := clampf(pulse, 0.0, 1.0)
+	var shoulder_left := facing * 8.0 - side * 19.0
+	var shoulder_right := facing * 9.0 + side * 18.0
+	var knife_tip := facing * (39.0 + 5.0 * alpha) - side * 2.0
+	var knife_base := facing * 23.0 - side * 6.0
+	draw_line(shoulder_left + facing * 2.0, shoulder_left + facing * 16.0, Color(1.0, 0.62, 0.2, 0.62 * alpha), 4.0)
+	draw_line(shoulder_right + facing * 1.0, shoulder_right + facing * 13.0, Color(0.82, 0.12, 0.04, 0.58 * alpha), 4.0)
+	draw_line(knife_base + Vector2(2.0, 3.0), knife_tip + Vector2(2.0, 3.0), Color(0.035, 0.018, 0.008, 0.32 * alpha), 5.0)
+	draw_line(knife_base, knife_tip, Color(1.0, 0.86, 0.48, 0.86 * alpha), 3.0)
+	for i in range(2):
+		var side_sign := -1.0 if i == 0 else 1.0
+		var boot_origin := -facing * 33.0 + side * side_sign * (14.0 + alpha * 4.0)
+		draw_circle(boot_origin + facing * (6.0 * alpha), 5.0 + alpha * 2.0, Color(0.58, 0.35, 0.14, 0.2 * alpha))
+		draw_arc(boot_origin, 11.0 + alpha * 5.0, 0.0, TAU, 16, Color(0.95, 0.62, 0.24, 0.2 * alpha), 2.0)
+
+func _draw_swarm_warning_wedge(facing: Vector2, side: Vector2, pulse: float) -> void:
+	var alpha := clampf(pulse, 0.0, 1.0)
+	var reach := lerpf(62.0, 42.0, alpha)
+	var width := lerpf(24.0, 16.0, alpha)
+	var wedge := PackedVector2Array([
+		facing * 8.0,
+		facing * reach + side * width,
+		facing * (reach + 18.0),
+		facing * reach - side * width,
+	])
+	draw_colored_polygon(wedge, Color(0.72, 0.08, 0.035, 0.2 * alpha))
+	draw_arc(facing * reach, width * 0.92, facing.angle() - 0.72, facing.angle() + 0.72, 14, Color(1.0, 0.62, 0.18, 0.44 * alpha), 3.0)
+	for i in range(3):
+		var spread := float(i - 1) * width * 0.58
+		var tick_origin := facing * (reach + 6.0) + side * spread
+		draw_circle(tick_origin, 3.0 + alpha * 1.5, Color(0.95, 0.48, 0.16, 0.32 * alpha))
+
+func has_swarm_warning_tell() -> bool:
+	return _swarm_warning_time > 0.0
+
+func has_directional_swarm_warning_tell() -> bool:
+	return _swarm_warning_time > 0.0

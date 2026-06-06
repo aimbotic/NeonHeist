@@ -12,17 +12,21 @@ var available_programs := {
 }
 
 var gun_profiles := {
-	"revolver": {"damage": 1.0, "range": 1.0, "width": 1.0, "cooldown": 1.0, "radius": 1.0, "chain": 1.0},
-	"long_rifle": {"damage": 1.18, "range": 1.25, "width": 0.85, "cooldown": 1.08, "radius": 0.95, "chain": 1.0},
-	"sawed_off": {"damage": 1.12, "range": 0.78, "width": 1.45, "cooldown": 0.95, "radius": 1.18, "chain": 0.85},
-	"pepperbox": {"damage": 0.9, "range": 0.94, "width": 1.1, "cooldown": 0.72, "radius": 1.0, "chain": 1.0},
-	"golden_revolver": {"damage": 1.25, "range": 1.12, "width": 1.12, "cooldown": 0.86, "radius": 1.08, "chain": 1.2},
+	"revolver": {"damage": 1.0, "range": 1.0, "width": 1.0, "cooldown": 1.0, "radius": 1.0, "chain": 1.0, "ammo": 6, "reload": 1.25},
+	"long_rifle": {"damage": 1.18, "range": 1.25, "width": 0.85, "cooldown": 1.08, "radius": 0.95, "chain": 1.0, "ammo": 4, "reload": 1.55},
+	"sawed_off": {"damage": 1.12, "range": 0.78, "width": 1.45, "cooldown": 0.95, "radius": 1.18, "chain": 0.85, "ammo": 2, "reload": 1.1},
+	"pepperbox": {"damage": 0.9, "range": 0.94, "width": 1.1, "cooldown": 0.72, "radius": 1.0, "chain": 1.0, "ammo": 8, "reload": 1.45},
+	"golden_revolver": {"damage": 1.25, "range": 1.12, "width": 1.12, "cooldown": 0.86, "radius": 1.08, "chain": 1.2, "ammo": 6, "reload": 0.95},
 }
 
 var unlocked := {}
 var equipped: Array[String] = ["deadeye", "ricochet_shot", "dust_veil", "quickdraw"]
 var equipped_gun := "revolver"
 var cooldowns := {}
+var ammo_current := 6
+var ammo_capacity := 6
+var reload_remaining := 0.0
+var reload_duration := 1.25
 var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
@@ -31,18 +35,29 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	for program_id in cooldowns.keys():
 		cooldowns[program_id] = max(0.0, cooldowns[program_id] - delta)
+	if reload_remaining > 0.0:
+		reload_remaining = max(0.0, reload_remaining - delta)
+		if reload_remaining <= 0.0:
+			ammo_current = ammo_capacity
 
 func reset() -> void:
 	cooldowns.clear()
+	_configure_ammo_for_gun()
 
 func can_cast(program_id: String) -> bool:
-	return equipped.has(program_id) and unlocked.has(program_id) and cooldowns.get(program_id, 0.0) <= 0.0
+	if not equipped.has(program_id) or not unlocked.has(program_id) or cooldowns.get(program_id, 0.0) > 0.0:
+		return false
+	if _is_gun_program(program_id):
+		return ammo_current > 0 and reload_remaining <= 0.0
+	return true
 
 func cast(program_id: String, origin: Vector2, direction: Vector2, enemies: Array[Node2D]) -> Dictionary:
 	var data: Dictionary = available_programs.get(program_id, {})
 	var profile := _gun_profile()
 	var cooldown_scale: float = profile.get("cooldown", 1.0) if _is_gun_program(program_id) else 1.0
 	cooldowns[program_id] = data.get("cooldown", 3.0) * cooldown_scale
+	if _is_gun_program(program_id):
+		_spend_round()
 	var aim := direction.normalized()
 
 	match program_id:
@@ -103,6 +118,7 @@ func set_equipped(new_equipped: Array[String]) -> void:
 func set_equipped_gun(gun_id: String) -> void:
 	if gun_profiles.has(gun_id):
 		equipped_gun = gun_id
+		_configure_ammo_for_gun()
 
 func get_equipped_id(slot: int) -> String:
 	if slot < 0 or slot >= equipped.size():
@@ -139,11 +155,40 @@ func get_equipped_summary() -> Array[Dictionary]:
 		})
 	return summary
 
+func get_ammo_summary() -> Dictionary:
+	return {
+		"gun_id": equipped_gun,
+		"ammo": ammo_current,
+		"capacity": ammo_capacity,
+		"reload": reload_remaining,
+		"reload_duration": reload_duration,
+		"reloading": reload_remaining > 0.0,
+	}
+
+func refill_ammo(rounds: int = -1) -> Dictionary:
+	var refill_amount := ammo_capacity if rounds < 0 else maxi(0, rounds)
+	ammo_current = mini(ammo_capacity, ammo_current + refill_amount)
+	if ammo_current >= ammo_capacity:
+		reload_remaining = 0.0
+	return get_ammo_summary()
+
 func _is_gun_program(program_id: String) -> bool:
 	return ["deadeye", "ricochet_shot", "quickdraw", "fan_hammer"].has(program_id)
 
 func _gun_profile() -> Dictionary:
 	return gun_profiles.get(equipped_gun, gun_profiles["revolver"])
+
+func _configure_ammo_for_gun() -> void:
+	var profile := _gun_profile()
+	ammo_capacity = int(profile.get("ammo", 6))
+	reload_duration = float(profile.get("reload", 1.25))
+	ammo_current = ammo_capacity
+	reload_remaining = 0.0
+
+func _spend_round() -> void:
+	ammo_current = maxi(0, ammo_current - 1)
+	if ammo_current <= 0:
+		reload_remaining = reload_duration
 
 func _area_program(origin: Vector2, enemies: Array[Node2D], radius: float, damage: float, heat: float, color: Color, chain_radius: float, effect: String, veil_duration: float = 0.0) -> Dictionary:
 	var hit_enemies: Array[Node2D] = []

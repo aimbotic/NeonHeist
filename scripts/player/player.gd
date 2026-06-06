@@ -42,6 +42,12 @@ const PLAYER_SPRITE_TOP_RIGHT_PATH := "res://assets/characters/player_turnaround
 const PLAYER_SPRITE_BOTTOM_LEFT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_bottom_left_3d_topdown_v001.png"
 const PLAYER_SPRITE_BOTTOM_RIGHT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_bottom_right_3d_topdown_v001.png"
 const PLAYER_SPRITE_TARGET_HEIGHT := 118.0
+const PLAYER_HERO_VISUAL_VERSION := "denim_brass_hero_whole_sprite_browser_safe_v12"
+const PLAYER_GROUNDED_SPRITE_VISUAL_VERSION := "player_locked_whole_body_sprite_perf_v14"
+const PLAYER_MOTION_REDRAW_INTERVAL := 1.0 / 8.0
+const PLAYER_IDLE_REDRAW_INTERVAL := 1.0 / 4.0
+const PLAYER_OVERLAY_MOVEMENT_SUPPRESSION_SPEED_SQ := 1600.0
+const PLAYER_SAFE_SOURCE_CROP_VISUAL_VERSION := "player_directional_uncropped_full_image_v4"
 
 var _arena_bounds := Rect2()
 var _character_texture: Texture2D
@@ -64,12 +70,16 @@ var _touch_vector := Vector2.ZERO
 var _touch_active := false
 var _anim_time := 0.0
 var _moving := false
+var _motion_redraw_timer := 0.0
+var _sprite_direction_key := "angled"
 
 func _ready() -> void:
 	z_index = 20
 	_load_character_texture()
 
 func _physics_process(delta: float) -> void:
+	if _motion_redraw_timer > 0.0:
+		_motion_redraw_timer = maxf(0.0, _motion_redraw_timer - delta)
 	_dash_cooldown_remaining = max(0.0, _dash_cooldown_remaining - delta)
 	_update_weapon_timers(delta)
 	_parry_flash_remaining = max(0.0, _parry_flash_remaining - delta)
@@ -91,14 +101,20 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 	_keep_inside_arena()
-	queue_redraw()
+	_request_motion_redraw()
 
 func _draw() -> void:
-	_draw_character_shadow(_get_character_visual_size())
+	var visual_size := _get_character_visual_size()
+	_draw_character_shadow(visual_size)
 	if _character_texture != null:
 		_draw_character_sprite()
 	else:
 		_draw_character()
+	if _should_draw_sprite_detail_overlay():
+		_draw_whole_sprite_equipment_glints(visual_size)
+	if _should_draw_body_attached_effect_overlay():
+		_draw_player_sprite_material_rim(visual_size)
+		_draw_player_hero_accent()
 	if _character_texture == null or _weapon_active_remaining > 0.0:
 		_draw_blade()
 	if _parry_flash_remaining > 0.0:
@@ -222,6 +238,27 @@ func get_aim_direction() -> Vector2:
 
 func get_dash_fraction() -> float:
 	return 1.0 - (_dash_cooldown_remaining / dash_cooldown)
+
+func get_player_hero_visual_version() -> String:
+	return PLAYER_HERO_VISUAL_VERSION
+
+func get_player_grounded_sprite_visual_version() -> String:
+	return PLAYER_GROUNDED_SPRITE_VISUAL_VERSION
+
+func get_player_sprite_material_marker_count() -> int:
+	return 12
+
+func get_player_motion_redraw_interval() -> float:
+	return PLAYER_MOTION_REDRAW_INTERVAL
+
+func get_player_overlay_movement_gate_version() -> String:
+	return "player_whole_sprite_no_body_overlay_v3"
+
+func get_player_safe_source_crop_visual_version() -> String:
+	return PLAYER_SAFE_SOURCE_CROP_VISUAL_VERSION
+
+func get_player_directional_source_crop_count() -> int:
+	return 13
 
 func _draw_character() -> void:
 	var facing: Vector2 = _dash_direction.normalized()
@@ -368,41 +405,39 @@ func _load_character_texture() -> void:
 
 func _draw_character_sprite() -> void:
 	var texture := _get_character_texture_for_direction()
-	var visual_size := _get_scaled_texture_size(texture)
+	var source_rect := _get_character_source_rect(texture)
+	var visual_size := _get_scaled_source_size(source_rect)
 	var draw_position := Vector2(-visual_size.x * 0.5, -visual_size.y * 0.5 + 8.0)
-	_draw_running_sprite(texture, draw_position, visual_size)
+	_draw_running_sprite(texture, draw_position, visual_size, source_rect)
 
-func _draw_running_sprite(texture: Texture2D, draw_position: Vector2, visual_size: Vector2) -> void:
-	var movement_ratio: float = clampf(velocity.length() / maxf(max_speed, 1.0), 0.0, 1.0)
-	if texture == null or movement_ratio < 0.08:
-		draw_texture_rect(texture, Rect2(draw_position, visual_size), false)
+func _draw_running_sprite(texture: Texture2D, draw_position: Vector2, visual_size: Vector2, source_rect: Rect2) -> void:
+	draw_texture_rect_region(texture, Rect2(draw_position, visual_size), source_rect)
+
+func _request_motion_redraw(force: bool = false) -> void:
+	if force:
+		_motion_redraw_timer = 0.0
+		queue_redraw()
 		return
+	if _motion_redraw_timer > 0.0:
+		return
+	var has_active_visual := _moving or velocity.length_squared() > 240.0 or _dash_time > 0.0 or _weapon_active_remaining > 0.0 or _weapon_recovery_remaining > 0.0 or _weapon_sheathe_delay_remaining > 0.0 or _parry_flash_remaining > 0.0 or invulnerable
+	_motion_redraw_timer = PLAYER_MOTION_REDRAW_INTERVAL if has_active_visual else PLAYER_IDLE_REDRAW_INTERVAL
+	queue_redraw()
 
-	var texture_size := texture.get_size()
-	var phase := _anim_time * 16.0
-	var step := sin(phase)
-	var bob := absf(step) * 3.2 * movement_ratio
-	var torso_ratio := 0.52
-	var torso_src := Rect2(Vector2.ZERO, Vector2(texture_size.x, texture_size.y * torso_ratio))
-	var torso_dest := Rect2(draw_position + Vector2(0.0, -bob), Vector2(visual_size.x, visual_size.y * torso_ratio + bob))
-	draw_texture_rect_region(texture, torso_dest, torso_src)
+func _has_active_player_effect_overlay() -> bool:
+	return _dash_time > 0.0 or _weapon_active_remaining > 0.0 or _parry_flash_remaining > 0.0 or invulnerable
 
-	var lower_src_y := texture_size.y * torso_ratio
-	var lower_src_h := texture_size.y - lower_src_y
-	var half_src_w := texture_size.x * 0.5
-	var lower_dest_y := draw_position.y + visual_size.y * torso_ratio - 2.0
-	var lower_dest_h := visual_size.y * (1.0 - torso_ratio) + 1.0
-	var half_dest_w := visual_size.x * 0.5
-	var stride := step * 10.0 * movement_ratio
-	var lift := absf(step) * 5.0 * movement_ratio
+func _should_draw_body_attached_effect_overlay() -> bool:
+	if not _has_active_player_effect_overlay():
+		return false
+	if _character_texture == null:
+		return true
+	return false
 
-	var left_src := Rect2(Vector2(0.0, lower_src_y), Vector2(half_src_w, lower_src_h))
-	var right_src := Rect2(Vector2(half_src_w, lower_src_y), Vector2(half_src_w, lower_src_h))
-	var left_dest := Rect2(Vector2(draw_position.x - stride * 0.55, lower_dest_y + lift), Vector2(half_dest_w + 2.0, lower_dest_h))
-	var right_dest := Rect2(Vector2(draw_position.x + half_dest_w + stride * 0.55 - 2.0, lower_dest_y - lift), Vector2(half_dest_w + 2.0, lower_dest_h))
-	draw_texture_rect_region(texture, left_dest, left_src)
-	draw_texture_rect_region(texture, right_dest, right_src)
-	_draw_run_contacts(visual_size, step, movement_ratio)
+func _should_draw_sprite_detail_overlay() -> bool:
+	if _character_texture == null:
+		return true
+	return false
 
 func _draw_run_contacts(visual_size: Vector2, step: float, movement_ratio: float) -> void:
 	var base_y := visual_size.y * 0.46 + 8.0
@@ -425,6 +460,17 @@ func _get_character_visual_size() -> Vector2:
 
 func _get_character_texture_for_direction() -> Texture2D:
 	var key := "angled"
+	_sprite_direction_key = key
+	var directional_texture: Texture2D = _direction_textures.get(key, null)
+	if directional_texture != null:
+		return directional_texture
+	return _character_texture
+
+func _is_using_stable_run_sprite() -> bool:
+	return true
+
+func _get_character_texture_key_for_direction() -> String:
+	var key := _sprite_direction_key
 	var facing := _dash_direction.normalized()
 	if absf(facing.x) > 0.35 and absf(facing.y) > 0.35:
 		if facing.y > 0.0:
@@ -435,26 +481,160 @@ func _get_character_texture_for_direction() -> Texture2D:
 		key = "right" if facing.x > 0.0 else "left"
 	elif absf(facing.y) > absf(facing.x) * 1.25:
 		key = "forward" if facing.y > 0.0 else "back"
-	var directional_texture: Texture2D = _direction_textures.get(key, null)
-	if directional_texture != null:
-		return directional_texture
-	return _character_texture
+	return key
 
 func _get_scaled_texture_size(texture: Texture2D) -> Vector2:
+	return _get_scaled_source_size(_get_character_source_rect(texture))
+
+func _get_character_source_rect(texture: Texture2D) -> Rect2:
 	if texture == null:
-		return Vector2(72.0, 110.0)
+		return Rect2(Vector2.ZERO, Vector2(72.0, 110.0))
 	var texture_size := texture.get_size()
-	var sprite_scale := PLAYER_SPRITE_TARGET_HEIGHT / maxf(texture_size.y, 1.0)
-	return texture_size * sprite_scale
+	return _get_directional_source_crop_rect(texture_size, _sprite_direction_key)
+
+func _get_directional_source_crop_rect(texture_size: Vector2, key: String) -> Rect2:
+	return Rect2(Vector2.ZERO, texture_size)
+
+func _get_scaled_source_size(source_rect: Rect2) -> Vector2:
+	var sprite_scale := PLAYER_SPRITE_TARGET_HEIGHT / maxf(source_rect.size.y, 1.0)
+	return source_rect.size * sprite_scale
 
 func _draw_character_shadow(fallback_size: Vector2) -> void:
 	var visual_size := _get_largest_character_sprite_size(fallback_size)
-	var width := clampf(visual_size.x * 0.72, 34.0, 96.0)
+	var movement_ratio: float = clampf(velocity.length() / maxf(max_speed, 1.0), 0.0, 1.0)
+	var dash_ratio: float = _dash_time / maxf(dash_duration, 0.01)
+	var width := clampf(visual_size.x * 0.72 + movement_ratio * 10.0 + dash_ratio * 16.0, 34.0, 112.0)
 	var height := clampf(visual_size.y * 0.18, 12.0, 28.0)
 	var y_offset := clampf(visual_size.y * 0.32, 22.0, 42.0)
-	draw_set_transform(Vector2(0.0, y_offset), 0.0, Vector2(width * 0.5, height * 0.5))
-	draw_circle(Vector2.ZERO, 1.0, Color(0.035, 0.018, 0.008, 0.34))
+	var cast_direction := Vector2(0.78, 0.36).normalized()
+	var cast_length := clampf(visual_size.y * (0.28 + movement_ratio * 0.08 + dash_ratio * 0.12), 24.0, 62.0)
+	draw_line(Vector2(2.0, y_offset + 8.0), Vector2(2.0, y_offset + 8.0) + cast_direction * cast_length, Color(0.045, 0.018, 0.007, 0.16 + dash_ratio * 0.08), clampf(height * 0.58, 7.0, 15.0))
+	draw_line(Vector2(-10.0, y_offset + 5.0), Vector2(-10.0, y_offset + 5.0) + cast_direction * cast_length * 0.74, Color(0.12, 0.055, 0.018, 0.09), clampf(height * 0.34, 4.0, 9.0))
+	draw_set_transform(Vector2(10.0, y_offset + 7.0), 0.0, Vector2(width * 0.64, height * 0.42))
+	draw_circle(Vector2.ZERO, 1.0, Color(0.025, 0.012, 0.006, 0.22))
+	draw_set_transform(Vector2(-6.0, y_offset + 2.0), 0.0, Vector2(width * 0.44, height * 0.24))
+	draw_circle(Vector2.ZERO, 1.0, Color(0.09, 0.045, 0.018, 0.13))
+	draw_set_transform(Vector2(-_dash_direction.x * dash_ratio * 12.0, y_offset), 0.0, Vector2(width * 0.5, height * 0.5))
+	draw_circle(Vector2.ZERO, 1.0, Color(0.035, 0.018, 0.008, 0.36))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func _draw_player_sprite_material_rim(visual_size: Vector2) -> void:
+	var facing := _dash_direction.normalized()
+	if facing.length_squared() <= 0.001:
+		facing = Vector2.RIGHT
+	var side := facing.orthogonal()
+	var moving_ratio: float = clampf(velocity.length() / maxf(max_speed, 1.0), 0.0, 1.0)
+	var dash_ratio: float = clampf(_dash_time / maxf(dash_duration, 0.01), 0.0, 1.0)
+	var weapon_flash: float = clampf(_weapon_active_remaining / maxf(weapon_active_time, 0.01), 0.0, 1.0)
+	var upper := -facing * clampf(visual_size.y * 0.1, 8.0, 18.0) + Vector2(0.0, -4.0)
+	var hat_width := clampf(visual_size.x * 0.34, 17.0, 28.0)
+	var shoulder_width := clampf(visual_size.x * 0.25, 14.0, 23.0)
+	var brass := Color(1.0, 0.74, 0.28, 0.38 + dash_ratio * 0.18 + weapon_flash * 0.18)
+	var denim := Color(0.38, 0.62, 0.78, 0.24 + dash_ratio * 0.18)
+	var sun_edge := Color(1.0, 0.86, 0.48, 0.22 + dash_ratio * 0.12 + weapon_flash * 0.14)
+	var leather_shadow := Color(0.022, 0.011, 0.006, 0.42)
+	draw_line(upper - side * hat_width, upper + side * hat_width, leather_shadow, 6.0)
+	draw_line(upper - side * hat_width * 0.72 - facing * 2.0, upper + side * hat_width * 0.72 - facing * 2.0, brass, 2.0)
+	draw_line(upper - side * hat_width * 0.44 - facing * 5.0, upper + side * hat_width * 0.44 - facing * 5.0, sun_edge, 1.5)
+	draw_line(-facing * 4.0 - side * shoulder_width, -facing * 2.0 + side * shoulder_width, denim, 2.5)
+	draw_line(-facing * 7.0 - side * shoulder_width * 0.72, -facing * 5.0 + side * shoulder_width * 0.72, sun_edge, 1.3)
+	draw_line(facing * 6.0 + side * shoulder_width * 0.45, facing * 28.0 + side * shoulder_width * 0.72, brass, 1.8)
+	var contact_y := clampf(visual_size.y * 0.36, 26.0, 46.0)
+	var contact_alpha := 0.14 + moving_ratio * 0.08 + dash_ratio * 0.14
+	draw_line(Vector2(-shoulder_width * 1.05, contact_y), Vector2(shoulder_width * 0.82, contact_y + 4.0), Color(0.055, 0.024, 0.01, contact_alpha), 3.4)
+	draw_line(Vector2(-shoulder_width * 0.74, contact_y - 2.0), Vector2(shoulder_width * 0.54, contact_y + 1.0), Color(1.0, 0.78, 0.38, 0.12 + dash_ratio * 0.08), 1.2)
+	draw_circle(-facing * 10.0 - side * shoulder_width * 0.52, 2.0, Color(0.92, 0.68, 0.28, 0.22 + weapon_flash * 0.16))
+	draw_circle(-facing * 8.0 + side * shoulder_width * 0.5, 1.7, Color(0.24, 0.46, 0.64, 0.22 + dash_ratio * 0.12))
+	draw_line(upper + side * hat_width * 0.5 + facing * 3.0, upper + side * hat_width * 0.88 + facing * 7.0, Color(1.0, 0.9, 0.58, 0.18 + weapon_flash * 0.14), 1.2)
+	if moving_ratio > 0.12:
+		var heel_y := clampf(visual_size.y * 0.34, 24.0, 42.0)
+		draw_line(Vector2(-shoulder_width * 0.55, heel_y), Vector2(-shoulder_width * 1.1, heel_y + 9.0), Color(0.95, 0.64, 0.22, 0.12 + moving_ratio * 0.12), 1.8)
+		draw_line(Vector2(shoulder_width * 0.5, heel_y), Vector2(shoulder_width * 0.95, heel_y + 8.0), Color(0.95, 0.64, 0.22, 0.1 + moving_ratio * 0.1), 1.6)
+
+func _draw_whole_sprite_equipment_glints(visual_size: Vector2) -> void:
+	var facing := _dash_direction.normalized()
+	if facing.length_squared() <= 0.001:
+		facing = Vector2.RIGHT
+	var side := facing.orthogonal()
+	var movement_ratio: float = clampf(velocity.length() / maxf(max_speed, 1.0), 0.0, 1.0)
+	var hat_y := -visual_size.y * 0.28
+	var shoulder_y := -visual_size.y * 0.12
+	var belt_y := visual_size.y * 0.03
+	var boot_y := visual_size.y * 0.32
+	var hat_half := clampf(visual_size.x * 0.22, 13.0, 23.0)
+	var shoulder_half := clampf(visual_size.x * 0.18, 11.0, 19.0)
+	var brass := Color(0.96, 0.68, 0.28, 0.38)
+	var denim := Color(0.28, 0.52, 0.7, 0.32)
+	var bone := Color(0.94, 0.88, 0.68, 0.34)
+	var leather := Color(0.035, 0.018, 0.01, 0.3)
+
+	draw_line(Vector2(0.0, hat_y) - side * hat_half, Vector2(0.0, hat_y) + side * hat_half, leather, 3.0)
+	draw_line(Vector2(0.0, hat_y - 2.0) - side * hat_half * 0.52, Vector2(0.0, hat_y - 2.0) + side * hat_half * 0.52, brass, 1.2)
+	draw_line(Vector2(0.0, shoulder_y) - side * shoulder_half, Vector2(0.0, shoulder_y) + side * shoulder_half, denim, 2.0)
+	draw_line(Vector2(0.0, belt_y) - side * shoulder_half * 0.82, Vector2(0.0, belt_y + 1.0) + side * shoulder_half * 0.86, brass, 1.8)
+	draw_circle(Vector2(0.0, belt_y) + facing * 2.0, 2.0, Color(0.98, 0.74, 0.34, 0.48))
+	draw_line(Vector2(0.0, belt_y + 4.0) - side * shoulder_half * 0.82, Vector2(0.0, boot_y - 5.0) - side * shoulder_half * 0.42, leather, 2.2)
+	draw_line(Vector2(0.0, belt_y + 2.0) + side * shoulder_half * 0.72, Vector2(0.0, belt_y + 12.0) + side * shoulder_half * 0.92 + facing * 5.0, Color(0.08, 0.05, 0.035, 0.42), 3.0)
+	draw_line(Vector2(0.0, belt_y + 3.0) + side * shoulder_half * 0.72, Vector2(0.0, belt_y + 12.0) + side * shoulder_half * 0.92 + facing * 5.0, brass, 1.1)
+	draw_line(Vector2(0.0, belt_y + 6.0) - side * shoulder_half * 0.9, Vector2(0.0, belt_y + 32.0) - side * shoulder_half * 1.04 + facing * 4.0, bone, 1.4)
+	if movement_ratio > 0.08:
+		var spur_alpha := 0.18 + movement_ratio * 0.16
+		draw_line(Vector2(0.0, boot_y) - side * shoulder_half * 0.74, Vector2(0.0, boot_y + 5.0) - side * shoulder_half * 1.08, Color(0.96, 0.66, 0.24, spur_alpha), 1.5)
+		draw_line(Vector2(0.0, boot_y) + side * shoulder_half * 0.74, Vector2(0.0, boot_y + 5.0) + side * shoulder_half * 1.08, Color(0.96, 0.66, 0.24, spur_alpha), 1.5)
+
+func _draw_player_hero_accent() -> void:
+	var facing := _dash_direction.normalized()
+	if facing.length_squared() <= 0.001:
+		facing = Vector2.RIGHT
+	var side := facing.orthogonal()
+	var moving_ratio: float = clampf(velocity.length() / maxf(max_speed, 1.0), 0.0, 1.0)
+	var dash_ratio: float = clampf(_dash_time / maxf(dash_duration, 0.01), 0.0, 1.0)
+	var weapon_flash: float = clampf(_weapon_active_remaining / maxf(weapon_active_time, 0.01), 0.0, 1.0)
+	var denim := Color(0.18, 0.35, 0.52, 0.72 + dash_ratio * 0.12)
+	var denim_edge := Color(0.52, 0.76, 0.92, 0.42 + dash_ratio * 0.2)
+	var brass := Color(0.96, 0.68, 0.28, 0.74 + weapon_flash * 0.18)
+	var bone := Color(0.94, 0.88, 0.68, 0.7 + weapon_flash * 0.16)
+	var dark := Color(0.028, 0.014, 0.008, 0.64)
+	var sun_edge := Color(1.0, 0.84, 0.44, 0.28 + dash_ratio * 0.18 + weapon_flash * 0.16)
+
+	var shoulder_left := facing * 4.0 - side * 17.0
+	var shoulder_right := facing * 6.0 + side * 17.0
+	var belt_left := -facing * 12.0 - side * 16.0
+	var belt_right := -facing * 9.0 + side * 17.0
+	var hat_center := facing * 18.0
+	var saber_hand := facing * 13.0 - side * 14.0
+	var revolver_hand := facing * 8.0 + side * 16.0
+
+	draw_line(shoulder_left, shoulder_right, dark, 7.0)
+	draw_line(shoulder_left + facing * 2.0, shoulder_right + facing * 2.0, denim, 4.0)
+	draw_line(shoulder_left + facing * 4.0, shoulder_right + facing * 4.0, denim_edge, 1.6)
+	draw_line(shoulder_left - facing * 2.0, shoulder_right - facing * 2.0, sun_edge, 1.2)
+	draw_line(belt_left, belt_right, Color(0.08, 0.036, 0.018, 0.72), 6.0)
+	draw_line(belt_left + facing * 2.0, belt_right + facing * 2.0, brass, 2.2)
+	draw_circle((belt_left + belt_right) * 0.5 + facing * 2.0, 3.2, brass)
+	draw_circle(belt_left + facing * 1.4, 1.7, sun_edge)
+	draw_circle(belt_right + facing * 1.4, 1.7, sun_edge)
+
+	draw_line(hat_center - side * 23.0, hat_center + side * 23.0, dark, 6.0)
+	draw_line(hat_center - side * 14.0 + facing * 3.0, hat_center + side * 14.0 + facing * 3.0, brass, 2.0)
+	draw_line(hat_center - side * 18.0 - facing * 2.0, hat_center + side * 18.0 - facing * 2.0, sun_edge, 1.4)
+	draw_line(hat_center - side * 12.0 - facing * 2.0, hat_center + side * 12.0 - facing * 2.0, Color(0.02, 0.012, 0.008, 0.78), 3.0)
+
+	draw_line(saber_hand, saber_hand + facing * (34.0 + weapon_flash * 18.0) - side * 4.0, Color(0.06, 0.034, 0.018, 0.62), 5.0)
+	draw_line(saber_hand + facing * 4.0, saber_hand + facing * (38.0 + weapon_flash * 18.0) - side * 4.0, bone, 2.2)
+	draw_circle(saber_hand, 3.4, brass)
+	draw_line(revolver_hand, revolver_hand + facing * 25.0 + side * 5.0, dark, 5.0)
+	draw_line(revolver_hand + facing * 3.0, revolver_hand + facing * 27.0 + side * 5.0, brass, 2.0)
+	draw_circle(revolver_hand + facing * 5.0 + side * 3.0, 3.0, Color(0.035, 0.022, 0.016, 0.86))
+
+	if moving_ratio > 0.1:
+		var spur_alpha := 0.16 + moving_ratio * 0.18
+		draw_line(-facing * 34.0 - side * 12.0, -facing * 43.0 - side * 18.0, Color(0.95, 0.66, 0.24, spur_alpha), 2.0)
+		draw_line(-facing * 34.0 + side * 12.0, -facing * 43.0 + side * 18.0, Color(0.95, 0.66, 0.24, spur_alpha), 2.0)
+	if dash_ratio > 0.0:
+		var streak_alpha := 0.28 * dash_ratio
+		draw_line(-facing * 18.0 - side * 18.0, -facing * (58.0 + dash_ratio * 32.0) - side * 28.0, Color(0.18, 0.35, 0.52, streak_alpha), 5.0)
+		draw_line(-facing * 14.0 + side * 16.0, -facing * (52.0 + dash_ratio * 30.0) + side * 24.0, Color(0.96, 0.68, 0.28, streak_alpha), 3.0)
 
 func _get_largest_character_sprite_size(fallback_size: Vector2) -> Vector2:
 	var largest := fallback_size
