@@ -15,6 +15,9 @@ var data := {
 	"equipped_blade": "saber",
 	"unlocked_guns": ["revolver"],
 	"equipped_gun": "revolver",
+	"upgrade_tokens": 0,
+	"purchased_upgrades": [],
+	"boss_token_claimed": [],
 }
 
 func _ready() -> void:
@@ -24,6 +27,43 @@ func add_credits(amount: int) -> void:
 	data["credits"] += amount
 	data["runs"] += 1
 	save_game()
+
+func add_upgrade_tokens(amount: int) -> int:
+	_ensure_defaults()
+	data["upgrade_tokens"] = maxi(0, int(data.get("upgrade_tokens", 0)) + amount)
+	save_game()
+	return int(data["upgrade_tokens"])
+
+func spend_upgrade_tokens(amount: int) -> bool:
+	_ensure_defaults()
+	var cost := maxi(0, amount)
+	if int(data.get("upgrade_tokens", 0)) < cost:
+		return false
+	data["upgrade_tokens"] = int(data.get("upgrade_tokens", 0)) - cost
+	save_game()
+	return true
+
+func purchase_upgrade(upgrade_id: String, cost: int) -> bool:
+	_ensure_defaults()
+	var purchased: Array = data["purchased_upgrades"]
+	if purchased.has(upgrade_id):
+		return false
+	if not spend_upgrade_tokens(cost):
+		return false
+	purchased.append(upgrade_id)
+	data["purchased_upgrades"] = purchased
+	save_game()
+	return true
+
+func claim_boss_token(boss_id: String) -> bool:
+	_ensure_defaults()
+	var claimed: Array = data["boss_token_claimed"]
+	if claimed.has(boss_id):
+		return false
+	claimed.append(boss_id)
+	data["boss_token_claimed"] = claimed
+	save_game()
+	return true
 
 func add_quest_progress(quest_id: String, amount: int, target: int) -> int:
 	_ensure_defaults()
@@ -115,6 +155,9 @@ func _ensure_defaults() -> void:
 		"equipped_blade": "saber",
 		"unlocked_guns": ["revolver"],
 		"equipped_gun": "revolver",
+		"upgrade_tokens": 0,
+		"purchased_upgrades": [],
+		"boss_token_claimed": [],
 	}
 	for key in defaults.keys():
 		if not data.has(key):

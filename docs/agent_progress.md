@@ -1,5 +1,893 @@
 # Dust Heist Agent Progress
 
+## 2026-06-08 - All-Strip Frame Motion QA Guard
+
+- Added a frame-to-frame motion detector to `scripts/game/main.gd` for `--dust-animation-strip-qa`.
+- The animation strip review now requires every generated player and enemy strip to show visible movement across multiple adjacent frames, in addition to the existing limb, boot/contact, hand, weapon, and silhouette detail checks.
+- This closes the last audit gap where a detailed but static strip could pass review; frozen legs, arms, or drawn-weapon frames now fail the strip QA.
+- Kept the guard QA-only, so it does not add runtime animation work, gameplay draw calls, nodes, textures, or asset weight.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-motion-strip-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-motion-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-motion-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-motion-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=177.7 min_fps=105.0 worst_frame_ms=9.5 elapsed_ms=1097.0`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-motion-heavy-perf.log --path . -- --dust-heavy-combat-performance-test` completed with exit code 0 and reported `DUST_HEAVY_PERF: PASS samples=180 avg_fps=170.8 min_fps=76.2 worst_frame_ms=13.1 elapsed_ms=1235.1`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-strip-motion-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 20 captures, including the runtime animation showcase and early/late gait contact pair.
+- Current generated animation asset count is 106 strip PNGs: 26 player strips and 80 enemy strips across the five reviewed enemy archetypes.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/heavy perf/visual QA.
+
+Next recommended step:
+
+- Treat the original sprite animation goal as ready for final completion audit: the current evidence now covers clean detailed strips, frame-to-frame animation, runtime movement screenshots, all reviewed enemy archetypes, player saber draw, carried weapons, and performance.
+
+## 2026-06-08 - Animation Strip Detail QA Guard
+
+- Added a stricter source-strip detector to `scripts/game/main.gd` for `--dust-animation-strip-qa`.
+- The review pass now checks every generated player and enemy strip for sampled skin/hand, metal/weapon, dark boot/contact, and clothing/silhouette pixels before accepting the strip sheet.
+- Kept this as a QA-only change; it does not add runtime nodes, draw calls, textures, or animation work during gameplay.
+- Tuned the detector against the valid back-facing rifleman gait strip, where the rifle is thin and skin is partly concealed, while still requiring visible weapon, boot, and silhouette detail.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-detail-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-detail-strip-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-detail-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-detail-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=183.0 min_fps=91.0 worst_frame_ms=11.0 elapsed_ms=1097.4`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-detail-heavy-perf.log --path . -- --dust-heavy-combat-performance-test` completed with exit code 0 and reported `DUST_HEAVY_PERF: PASS samples=180 avg_fps=169.0 min_fps=101.7 worst_frame_ms=9.8 elapsed_ms=1235.1`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-strip-detail-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 20 captures, including the runtime animation showcase and early/late gait contact pair.
+- Reviewed `artifacts/qa/12_player_animation_strip_review.png` and `artifacts/qa/13_enemy_animation_strip_review.png`; the sheets show readable player saber/limb motion and enemy carried-weapon gait strips across the full reviewed set.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke.
+
+Next recommended step:
+
+- Run a final evidence audit against the original player/enemy sprite goal before marking it complete, using the strip-detail guard, runtime showcase captures, gait contact pair, and smoke contracts together.
+
+## 2026-06-08 - Player Body-Attached Carried Saber Gait
+
+- Tuned the player carried-saber gait frames in `scripts/tools/generate_gait_sprite_strips.gd`.
+- The cowgirl's movement strips now keep the saber tied to the hand and torso with a holster-to-hand tether, support-hand guard marker, visible grip/guard dots, and a more tucked ready blade angle.
+- Kept the change baked into the existing 8-frame gait strips, with no new runtime draw calls or extra animation frames.
+- Regenerated the compact player and enemy animation strips; player strip folder size remained 4.2 MB and enemy strip folder size remained 9.5 MB.
+- Bumped the player human-motion contract to `player_body_attached_carried_saber_gait_strip_v21` and the player gait-strip contract to `player_body_attached_carried_saber_gait_strip_v5`, with smoke coverage for carried-saber tether and guard markers.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-carried-saber-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-carried-saber-strip-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-carried-saber-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-carried-saber-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-carried-saber-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=191.3 min_fps=104.4 worst_frame_ms=9.6 elapsed_ms=1097.3`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-carried-saber-heavy-perf.log --path . -- --dust-heavy-combat-performance-test` completed with exit code 0 and reported `DUST_HEAVY_PERF: PASS samples=180 avg_fps=180.8 min_fps=96.5 worst_frame_ms=10.4 elapsed_ms=1236.3`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-player-carried-saber-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 20 captures, including the refreshed runtime animation showcase and gait contact pair.
+- Reviewed `artifacts/qa/14_runtime_gait_contact_shift.png`; the player saber now reads as tucked into a clearer ready/guard line near the hand and body during movement.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/heavy perf/visual QA.
+
+Next recommended step:
+
+- Audit whether the current runtime screenshots prove every part of the original sprite goal strongly enough; if not, add a final focused QA capture or detector for player/enemy arm-leg separation at gameplay scale before considering the goal complete.
+
+## 2026-06-08 - Player Holster-To-Guard Saber Draw
+
+- Strengthened the baked player saber anticipation layer in `scripts/tools/generate_gait_sprite_strips.gd`.
+- Player saber strips now show a clearer hand path from hip holster to guard, including hilt checkpoints, a visible scabbard/hilt line, support-hand guard placement, and a brighter blade draw ghost before release.
+- Kept the same compact 8-frame strip layout and did not add runtime draw calls; the improvement is baked into the generated player combat strips.
+- Regenerated the compact player and enemy animation strips; player strip folder size is now 4.2 MB and enemy strip folder size remains 9.5 MB.
+- Bumped the player human-motion contract to `player_holster_guard_saber_draw_strip_v20` with smoke coverage for holster scabbard, hilt checkpoints, guard hand path, and blade draw ghost markers.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-saber-draw-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-saber-draw-strip-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-saber-draw-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-saber-draw-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-saber-draw-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=173.5 min_fps=101.9 worst_frame_ms=9.8 elapsed_ms=1097.7`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-saber-draw-heavy-perf.log --path . -- --dust-heavy-combat-performance-test` completed with exit code 0 and reported `DUST_HEAVY_PERF: PASS samples=180 avg_fps=176.9 min_fps=98.1 worst_frame_ms=10.2 elapsed_ms=1235.2`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-player-saber-draw-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 20 captures, including the refreshed runtime animation showcase and gait contact pair.
+- Reviewed `artifacts/qa/12_runtime_animation_showcase.png`; the player now shows a brighter hilt/hand path near the body before the saber extends, while the staged enemies remain readable.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/heavy perf/visual QA.
+
+Next recommended step:
+
+- Add a sharper player carried-saber idle/readiness pose between attacks, so the saber remains visibly body-attached and intentional during movement after the draw completes.
+
+## 2026-06-08 - Rusher And Hunter Gait Separation
+
+- Tuned `scripts/tools/generate_gait_sprite_strips.gd` so knife rushers and hunters no longer share one generic light-footed gait profile.
+- Knife rushers now get a more urgent forward-driving stride, stronger arm reach, shorter boot contacts, and a carried knife pose that pushes the blade ahead of the body.
+- Hunters now get a lower, leaner stalking gait with quieter arm motion, longer off-axis blade carriage, and a support-hand line that reads more predatory than frantic.
+- Regenerated the compact player and enemy animation strips; the strip count stayed at 26 player strips and 80 enemy strips with 8 frames each.
+- Bumped the enemy human-motion contract to `enemy_rusher_hunter_gait_weapon_anchor_strip_v21` and the enemy gait-strip contract to `enemy_rusher_hunter_legible_gait_strip_v7`, with smoke coverage for the new rusher/hunter markers.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-rusher-hunter-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-rusher-hunter-strip-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- Animation folders after regeneration: `assets/characters/player_animation` is 4.1 MB and `assets/enemies/animation` is 9.5 MB.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-rusher-hunter-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-rusher-hunter-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-rusher-hunter-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=194.0 min_fps=100.6 worst_frame_ms=9.9 elapsed_ms=1097.3`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-rusher-hunter-heavy-perf.log --path . -- --dust-heavy-combat-performance-test` completed with exit code 0 and reported `DUST_HEAVY_PERF: PASS samples=180 avg_fps=181.3 min_fps=106.0 worst_frame_ms=9.4 elapsed_ms=1235.0`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-rusher-hunter-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 20 captures, including the refreshed runtime animation showcase and gait contact pair.
+- Reviewed `artifacts/qa/14_runtime_gait_contact_shift.png`; the rusher keeps the knife pushed forward, the hunter reads leaner with a longer blade line, and the prior rifleman/brute gait separation remains visible.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/heavy perf/visual QA.
+
+Next recommended step:
+
+- Improve the player's own saber draw at runtime by making the carried/ready pose show a clearer hand path from holster to guard before the slash, then verify it in `12_runtime_animation_showcase.png` and the gait contact pair.
+
+## 2026-06-08 - Role-Specific Enemy Gait Frames
+
+- Tuned `scripts/tools/generate_gait_sprite_strips.gd` so generated enemy gait strips separate rifleman and shotgun brute movement more clearly without adding frames or new texture types.
+- Riflemen now keep a steadier braced march with quieter arm swing, squared support hands, and a more stable carried rifle line.
+- Shotgun brutes now use wider stance spacing, heavier planted boot contacts, lower lift, broader compression, and chunkier carried shotgun hand placement.
+- Regenerated the compact enemy gait and weapon strips under `assets/enemies/animation/`; player strips were regenerated by the same tool but kept the same compact 4.1 MB folder size.
+- Bumped the enemy human-motion contract to `enemy_role_specific_gait_weapon_anchor_strip_v20` and the enemy gait-strip contract to `enemy_role_specific_legible_gait_strip_v6`, with smoke coverage for the new role-specific markers.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-gait-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-gait-strip-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- Animation folders after regeneration: `assets/characters/player_animation` is 4.1 MB and `assets/enemies/animation` is 9.5 MB.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-gait-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-gait-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-gait-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=197.5 min_fps=98.0 worst_frame_ms=10.2 elapsed_ms=1097.8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-gait-heavy-perf.log --path . -- --dust-heavy-combat-performance-test` completed with exit code 0 and reported `DUST_HEAVY_PERF: PASS samples=180 avg_fps=180.8 min_fps=97.4 worst_frame_ms=10.3 elapsed_ms=1234.9`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-role-gait-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 20 captures, including the refreshed runtime animation showcase and gait contact pair.
+- Reviewed `artifacts/qa/14_runtime_gait_contact_shift.png`; the rifleman now reads as a steadier braced long-gun march while the shotgun brute reads wider and heavier at gameplay scale.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/heavy perf/visual QA.
+
+Next recommended step:
+
+- Apply the same role-specific polish to knife rusher and hunter motion: make the rusher more urgent and forward-stabbing while keeping the hunter lean and predatory, then verify with the runtime gait pair and heavy perf.
+
+## 2026-06-08 - Enemy Animation Texture Cache
+
+- Added an archetype-level texture cache for enemy turnaround sprites, gait strips, and weapon strips in `scripts/enemies/base_enemy.gd`.
+- New enemies now reuse the already-loaded knife rusher, rifleman, shotgun brute, hunter, or duelist animation textures instead of decoding the same PNG strips again as waves spawn.
+- Preserved the current authored human-motion strips, direction switching, gait frames, weapon draw frames, and clean strip-backed overlay behavior; this pass reduces spawn/load cost rather than changing the art budget.
+- Added smoke coverage for the new `enemy_animation_texture_archetype_cache_v1` contract so future sprite work keeps the cache path intact.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-enemy-cache-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-enemy-cache-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-enemy-cache-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=203.5 min_fps=88.1 worst_frame_ms=11.4 elapsed_ms=1098.3`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-enemy-cache-heavy-perf.log --path . -- --dust-heavy-combat-performance-test` completed with exit code 0 and reported `DUST_HEAVY_PERF: PASS samples=180 avg_fps=181.6 min_fps=99.3 worst_frame_ms=10.1 elapsed_ms=1235.1`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-enemy-cache-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 20 captures, including the runtime animation showcase and gait contact pair.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/heavy perf.
+
+Next recommended step:
+
+- Continue gait polish with per-role stance timing, starting with rifleman and shotgun brute, but keep changes cache-friendly and verify with both regular and heavy perf because this goal now has visible lag risk.
+
+## 2026-06-08 - Runtime Gait Motion Delta Guard
+
+- Added an automated visual QA guard that compares `14_runtime_gait_contact_shift.png` and `15_runtime_gait_contact_shift_late.png` after both are captured.
+- The guard samples the same staged character area used by the runtime animation showcase and fails if the carried-weapon lineup does not visibly change between the early and late gait frames.
+- Kept the change FPS-neutral: no new textures, nodes, effects, or draw work during normal gameplay.
+- Adjusted the runtime animation showcase image checks to validate the saved QA PNGs when available, matching the artifact the build agent reviews and avoiding raw viewport color-space brittleness on Metal.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gait-delta-load.log --path . --quit` completed with exit code 0.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-gait-delta-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 20 captures, including the early/late gait contact pair.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gait-delta-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gait-delta-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=183.5 min_fps=96.5 worst_frame_ms=10.4 elapsed_ms=1097.2`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/visual scenarios.
+
+Next recommended step:
+
+- Tune per-role gait contrast without adding asset weight, starting with rifleman and shotgun brute stance differences, and keep the perf sampler in the loop because the last build pass raised lag concerns.
+
+## 2026-06-08 - Runtime Gait Contact Pair QA
+
+- Added `artifacts/qa/15_runtime_gait_contact_shift_late.png` as a second carried-weapon gait capture taken after the runtime animation clock advances.
+- Kept `14_runtime_gait_contact_shift.png` as the first carried-gait contact frame and now captures the same staged lineup again after more physics frames, making it easier to compare foot contacts and leg positions across time.
+- The carried-gait pair remains HUD-free, prop-free, and transient-VFX-free so the inspection focuses on human motion, readable carried weapons, and planted boot contacts.
+- Updated `--dust-visual-qa` to validate the late contact frame alongside the weapon-ready showcase and first contact frame.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gait-contact-pair-load.log --path . --quit` completed with exit code 0.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-gait-contact-pair-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 20 captures, including `14_runtime_gait_contact_shift.png` and `15_runtime_gait_contact_shift_late.png`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gait-contact-pair-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gait-contact-pair-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=194.2 min_fps=98.3 worst_frame_ms=10.2 elapsed_ms=1097.1`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke.
+
+Next recommended step:
+
+- Use the contact pair to tune per-role gait contrast, starting with rifleman and shotgun brute, so the heavy and ranged enemy walks read differently even without attack tells.
+
+## 2026-06-08 - Runtime Gait Contact Shift QA
+
+- Added a second focused runtime animation capture, `artifacts/qa/14_runtime_gait_contact_shift.png`, to show carried-weapon gait poses without attack tells, HUD, cover props, or transient VFX covering the bodies.
+- Tuned the runtime animation showcase staging so all enemy roles fit inside the capture frame and the rifle/shotgun/duelist/hunter cooldowns stay quiet during the carried-gait contact check.
+- Added `clear_transient_effects()` to `scripts/systems/vfx_layer.gd` so focused QA can remove temporary beams, glints, afterimages, sparks, and dust without deleting persistent blood stains or changing normal gameplay.
+- Kept the original `12_runtime_animation_showcase.png` weapon-ready capture for drawn weapon readability, and added the new contact-shift capture for cleaner leg and foot inspection.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gait-contact-load4.log --path . --quit` completed with exit code 0.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-gait-contact-visual-qa4.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 19 captures, including `12_runtime_animation_showcase.png` and `14_runtime_gait_contact_shift.png`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gait-contact-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gait-contact-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=173.7 min_fps=108.3 worst_frame_ms=9.2 elapsed_ms=1097.0`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke.
+
+Next recommended step:
+
+- Use the two runtime captures to tune individual role spacing and pose contrast, especially the rifleman and brute carried-weapon stances, before adding any more strip detail.
+
+## 2026-06-08 - Anchored Limb And Weapon Strip Silhouettes
+
+- Strengthened the generated player and enemy animation strips in `scripts/tools/generate_gait_sprite_strips.gd` with clearer hip-knee-boot chains, darker planted boot contacts, and small brass spur/boot edge cues.
+- Added stronger baked weapon anchors for the player saber and each enemy role: off-hand guard on the saber, braced rifle support hand, wider shotgun body, brighter knife/hunter blade edges, and duelist support-hand framing.
+- Regenerated all compact player and enemy gait/combat strips under `assets/characters/player_animation/` and `assets/enemies/animation/`.
+- Bumped the player strip contracts to `player_gameplay_scaled_legible_gait_strip_v4`, `player_gameplay_scaled_anchored_saber_strip_v5`, and `player_stronger_leg_weapon_anchor_strip_v19`.
+- Bumped the enemy strip contracts to `enemy_gameplay_scaled_legible_gait_strip_v5`, `enemy_gameplay_scaled_anchored_weapon_strip_v5`, and `enemy_stronger_leg_weapon_anchor_strip_v19`.
+- Retuned the runtime animation showcase screenshot detector to sample the stable image-space lineup area after strip regeneration.
+- Preserved the compact frame dimensions: player strip folder is 4.1 MB and enemy strip folder is 9.2 MB after regeneration.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-anchored-limbs-load3.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-anchored-limbs-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-anchored-limbs-strip-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-anchored-limbs-visual-qa3.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 18 captures, including the refreshed `12_runtime_animation_showcase.png`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-anchored-limbs-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-anchored-limbs-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=363.4 min_fps=80.1 worst_frame_ms=12.5 elapsed_ms=1097.7`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/visual scenarios.
+
+Next recommended step:
+
+- Tune the runtime showcase staging so every role is fully inside frame, then add a two-frame before/after contact comparison for gait poses to judge whether each role reads as human motion without relying on the strip sheet.
+
+## 2026-06-08 - Runtime Animation Showcase QA
+
+- Added a focused runtime animation showcase capture to `--dust-visual-qa` so the actual in-game player and enemy sprite draw paths can be reviewed without playing through a full wave.
+- The showcase stages the player in an active saber draw plus knife rusher, rifleman, shotgun brute, hunter, and duelist roles in movement or weapon-readied poses.
+- Hid the HUD only for the showcase capture so arms, legs, weapon highlights, and contact shadows are visible at gameplay scale.
+- Added screenshot validation that checks the showcase area for player denim, brass and bone weapon highlights, enemy danger accents, dark contact shapes, and image contrast.
+- New output: `artifacts/qa/12_runtime_animation_showcase.png`.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-runtime-animation-showcase-load3.log --path . --quit` completed with exit code 0.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-runtime-animation-showcase-visual-qa3.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 18 captures, including `12_runtime_animation_showcase.png`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-runtime-animation-showcase-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-runtime-animation-showcase-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=170.8 min_fps=81.7 worst_frame_ms=12.2 elapsed_ms=1097.6`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke.
+
+Next recommended step:
+
+- Use the new runtime showcase to tune pose spacing: make the player saber draw and each enemy weapon-ready pose read clearly from a single frame before adding more strip frames.
+
+## 2026-06-08 - Clean Strip-Backed Overlay Suppression
+
+- Suppressed the full procedural player limb and saber overlay while baked player animation strip frames are active, so the cowgirl no longer gets duplicate arms, legs, and weapon strokes drawn over authored strip frames.
+- Suppressed the full procedural enemy limb and weapon overlay while baked enemy gait or combat strip frames are active, while preserving enemy role plates, role glints, hit rims, and idle/fallback overlays.
+- Added explicit player and enemy strip-overlay mode contracts so smoke tests catch any regression that reintroduces doubled strip-frame overlays.
+- Bumped the player human-motion contract to `player_clean_strip_backed_idle_breath_saber_v18`.
+- Bumped the enemy human-motion contract to `enemy_clean_strip_backed_idle_breath_weapon_limb_v18`.
+- Kept strip textures unchanged, so this pass reduces duplicate runtime draw work without increasing animation asset size.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-clean-strip-overlay-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-clean-strip-overlay-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=174.6 min_fps=87.1 worst_frame_ms=11.5 elapsed_ms=1097.0`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-clean-strip-overlay-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-clean-strip-overlay-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke.
+
+Next recommended step:
+
+- Add a direct runtime animation showcase QA capture that cycles selected player and enemy animations at gameplay scale, so the cleaned strip-backed motion can be reviewed without playing a full wave.
+
+## 2026-06-07 - Low-Speed Step And Facing Engagement
+
+- Lowered the player gait-strip and facing threshold in `scripts/player/player.gd` so cautious movement starts showing direction-aware stepping at 4 px/s instead of waiting until 10 px/s.
+- Lowered the enemy gait-strip, facing, and active-redraw threshold in `scripts/enemies/base_enemy.gd` so slow chases and positioning changes use animated steps rather than sliding.
+- Left enemy movement dust at its higher threshold so slow stepping does not spam dust effects.
+- Bumped the player human-motion contract to `player_low_speed_step_idle_breath_saber_strip_v17`.
+- Bumped the enemy human-motion contract to `enemy_low_speed_step_idle_breath_weapon_limb_strips_v17`.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-low-speed-step-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-low-speed-step-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=188.8 min_fps=79.4 worst_frame_ms=12.6 elapsed_ms=1096.4`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-low-speed-step-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-low-speed-step-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/visual scenarios.
+
+Next recommended step:
+
+- Add a direct runtime animation showcase QA capture that cycles selected player and enemy animations at gameplay scale, so slow-step and idle timing can be reviewed without playing a full wave.
+
+## 2026-06-07 - Whole-Body Idle Breathing And Weight Shift
+
+- Added subtle whole-body idle breathing to the player sprite transform in `scripts/player/player.gd`, so the cowgirl no longer rests completely still between movement and saber draw frames.
+- Added role-weighted enemy idle breathing and side-weight shifts in `scripts/enemies/base_enemy.gd`: shotgun brutes breathe slower and heavier, knife rushers feel more restless, and other roles use a steadier idle rhythm.
+- Bumped the player human-motion contract to `player_idle_breath_holster_saber_strip_v16`.
+- Bumped the enemy human-motion contract to `enemy_idle_breath_role_readable_weapon_limb_strips_v16`.
+- Kept the strip assets unchanged and inside the compact budget; this pass improves runtime body motion rather than adding texture size.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-idle-breath-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-idle-breath-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=184.7 min_fps=64.3 worst_frame_ms=15.5 elapsed_ms=1097.0`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-idle-breath-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-idle-breath-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke.
+
+Next recommended step:
+
+- Add a direct runtime animation showcase QA capture that displays selected player and enemy animations at gameplay scale, making timing and idle motion easier to judge than the tall static strip sheets.
+
+## 2026-06-07 - Player Holster-To-Saber Draw Frames
+
+- Added a player-specific saber draw anticipation layer in `scripts/tools/generate_gait_sprite_strips.gd`.
+- Player combat strips now bake a clearer holster-to-draw hand path, off-hand guard pose, brass hilt glint, and short draw-anticipation blade ghost into the compact saber frames.
+- Bumped the player human-motion contract to `player_gameplay_scaled_holster_saber_draw_strip_v15` and expanded smoke marker coverage for holster hand travel, off-hand guard, hilt glint, and draw anticipation.
+- Kept the compact animation budget intact: `assets/characters/player_animation` stayed at 4.1 MB and `assets/enemies/animation` stayed at 8.6 MB.
+
+Validation:
+
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-holster-draw-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-holster-draw-strip-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-holster-draw-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-holster-draw-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=181.8 min_fps=79.8 worst_frame_ms=12.5 elapsed_ms=1098.3`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-player-holster-draw-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-player-holster-draw-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs.
+
+Next recommended step:
+
+- Add a direct runtime animation showcase scene or overlay that cycles player and enemy strips at gameplay scale, making it easier to judge motion timing without reading a tall review sheet.
+
+## 2026-06-07 - Role-Readable Compact Weapon Animation Strips
+
+- Strengthened role-specific weapon readability in `scripts/tools/generate_gait_sprite_strips.gd` while keeping the compact gameplay-scale strip budget.
+- Riflemen now get thicker long-gun silhouettes, brighter muzzle glints, and visible support-hand braces on gait and combat strip frames.
+- Shotgun brutes now get heavier shotgun silhouettes, larger muzzle accents, and stronger two-hand bracing so the weapon reads as a wide heavy threat at gameplay scale.
+- Knife rushers, hunters, and duelists now get brighter blade edges, guard dots, and stronger dark shadow backing so their drawn weapons stay readable in compact frames.
+- Bumped the player human-motion contract to `player_gameplay_scaled_readable_saber_strip_v14`.
+- Bumped the enemy human-motion contract to `enemy_gameplay_scaled_role_readable_weapon_limb_strips_v15`.
+- Preserved the compact asset budget: `assets/characters/player_animation` stayed at 4.1 MB and `assets/enemies/animation` stayed at 8.6 MB.
+
+Validation:
+
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-readable-strips-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-readable-strip-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-readable-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-readable-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=169.1 min_fps=102.5 worst_frame_ms=9.8 elapsed_ms=1097.0`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-readable-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-role-readable-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke.
+
+Next recommended step:
+
+- Continue polishing the animation pass with a focused player-side refinement, such as clearer idle breathing and holster-to-saber draw anticipation, while keeping the compact strip budget.
+
+## 2026-06-07 - Animation Strip Texture Budget Guard
+
+- Added runtime texture-budget hooks for the generated player and enemy animation strips.
+- Player sprites now expose `player_animation_strip_texture_budget_v1`, total loaded strip pixels, and max strip height through `scripts/player/player.gd`.
+- Enemy sprites now expose `enemy_animation_strip_texture_budget_v1`, total loaded strip pixels, and max strip height through `scripts/enemies/base_enemy.gd`.
+- Extended smoke coverage in `scripts/game/main.gd` so the player strip budget must stay under 6.5 million loaded pixels and 150 px max frame height, while each loaded enemy role must stay under 4.5 million loaded pixels and 150 px max frame height.
+- This protects the human-motion work from regressing back to the oversized full-source strip sheets that caused visible lag, while preserving the compact gait, arm, leg, and weapon-draw frames.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-budget-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-budget-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-budget-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-strip-budget-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=178.3 min_fps=77.2 worst_frame_ms=13.0 elapsed_ms=1096.6`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-strip-budget-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Current strip folder sizes remain compact: `assets/characters/player_animation` is 4.1 MB and `assets/enemies/animation` is 8.6 MB.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/visual scenarios.
+
+Next recommended step:
+
+- Continue visual tuning within the enforced compact strip budget, focusing on clearer role-specific enemy arm and weapon silhouettes rather than increasing texture size.
+
+## 2026-06-07 - Gameplay-Scale Animation Strip Lag Fix
+
+- Responded to visible lag from the previous attached-weapon animation pass by reducing generated strip textures to fixed gameplay-scale frames.
+- Updated `scripts/tools/generate_gait_sprite_strips.gd` so player strips generate at 192x144 frames, standard enemy strips at 176x136 frames, and shotgun brute strips at 196x148 frames instead of using full source-resolution frames.
+- Preserved the human-motion work: gait frames still bake alternating boot contacts, arm swings, body-attached carried weapons, and direction-aware weapon silhouettes.
+- Preserved combat readability: combat frames still bake braced feet, lead/support hands, and direction-aware saber/rifle/shotgun/blade silhouettes anchored to the shifted body pose.
+- Bumped the player contracts to `player_gameplay_scaled_attached_saber_strip_v13`, `player_gameplay_scaled_carried_saber_gait_strip_v3`, and `player_gameplay_scaled_directional_saber_strip_v4`.
+- Bumped the enemy contracts to `enemy_gameplay_scaled_attached_weapon_limb_strips_v14`, `enemy_gameplay_scaled_carried_weapon_gait_strip_v4`, and `enemy_gameplay_scaled_directional_weapon_strip_v4`.
+- Reduced runtime animation strip assets from roughly 185 MB total to about 13 MB total: `assets/characters/player_animation` is now 4.1 MB and `assets/enemies/animation` is now 8.6 MB.
+
+Validation:
+
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gameplay-scaled-strips-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gameplay-scaled-strip-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gameplay-scaled-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gameplay-scaled-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=170.5 min_fps=100.1 worst_frame_ms=10.0 elapsed_ms=1097.9`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gameplay-scaled-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-gameplay-scaled-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/visual scenarios.
+
+Next recommended step:
+
+- Continue improving the smallest enemy poses with role-specific exaggeration inside the compact frame budget, especially rifleman support hands and knife/hunter blade reads.
+
+## 2026-06-07 - Direction-Aware Baked Limb Animation Strips
+
+- Upgraded `scripts/tools/generate_gait_sprite_strips.gd` so generated gait strips bake direction-aware alternating boot contacts, arm swings, hand glints, and grounded stride poses into every frame.
+- Upgraded generated combat strips with braced combat feet, lead/support hands, and direction-aware weapon silhouettes so player saber frames and enemy weapon frames point with the current facing instead of using one generic angle.
+- Bumped the player human-motion contract to `player_directional_baked_limb_saber_strip_v11` with expanded marker coverage for baked boot contacts, arm swing, braced feet, support hands, and saber draw frames.
+- Bumped the enemy human-motion contract to `enemy_all_roles_directional_baked_limb_weapon_strips_v12` with expanded marker coverage for all-role baked gait limbs, combat limbs, support hands, and role weapon draw frames.
+- Regenerated the player and enemy animation strips and rebuilt the animation review sheets under `artifacts/qa/`.
+
+Validation:
+
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-directional-limb-strips-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-directional-limb-strip-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-directional-limb-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-directional-limb-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-directional-limb-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=193.6 min_fps=87.2 worst_frame_ms=11.5 elapsed_ms=1096.7`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-directional-limb-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke.
+
+Next recommended step:
+
+- Improve the smallest enemy review rows with stronger role-scale silhouettes, especially long-gun and knife support-hand poses that still read small in the all-enemy review sheet.
+
+## 2026-06-07 - Character Animation Strip Review QA
+
+- Added a dedicated `--dust-animation-strip-qa` validation mode in `scripts/game/main.gd`.
+- The new QA mode loads every generated player and enemy animation strip directly from disk, assembles frame-by-frame review sheets, and fails if the expected strip coverage is missing or blank.
+- Added review outputs under `artifacts/qa/`: `12_player_animation_strip_review.png` for 26 player gait/saber strips and `13_enemy_animation_strip_review.png` for 80 enemy gait/weapon strips.
+- Kept the review headless and asset-backed, so future passes can inspect legs, arms, body gait, and weapon draw frames without needing to catch a perfect moment during live combat.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-animation-strip-review.log --path . -- --dust-animation-strip-qa` completed with exit code 0 and reported `DUST_ANIMATION_STRIP_QA: PASS version=character_animation_strip_review_grid_v1 player_strips=26 enemy_strips=80 frame_count=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-animation-strip-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-animation-strip-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-animation-strip-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=168.3 min_fps=105.5 worst_frame_ms=9.5 elapsed_ms=1098.1`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-animation-strip-visual-qa.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke.
+
+Next recommended step:
+
+- Use the new review sheets to tune the least-readable rows next, especially enemy combat strips where arm swing and weapon draw are visible but still small at gameplay scale.
+
+## 2026-06-07 - Baked Weapon Combat Strips
+
+- Extended `scripts/tools/generate_gait_sprite_strips.gd` so combat strip frames bake visible weapon silhouettes directly into the PNG frames.
+- Added baked player saber lines, hilt guards, and bright blade silhouettes into the generated player saber strips.
+- Added role-specific enemy weapon silhouettes into generated weapon strips: rifle barrels/stocks, heavy shotgun barrels, knife rusher blades, hunter long blades, and duelist saber guards.
+- Upgraded the player contract to `player_baked_saber_gait_combat_strip_v10` and the saber strip contract to `player_baked_directional_saber_strip_v2`.
+- Upgraded the enemy contract to `enemy_all_roles_baked_weapon_combat_strips_v11` and the enemy combat strip contract to `enemy_baked_all_roles_weapon_strip_v2`.
+- Kept procedural overlays as reinforcement, but weapon draw and attack poses now have source-backed baked silhouettes in addition to overlay arms and weapon glints.
+
+Validation:
+
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-baked-weapon-strips-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0 and regenerated 26 player strips plus 80 enemy strips.
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-baked-weapon-strips-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-baked-weapon-strips-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-baked-weapon-strips-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=171.4 min_fps=98.0 worst_frame_ms=10.2 elapsed_ms=1097.0`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-baked-weapon-strips-visual-visible.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/visual scenarios.
+
+Next recommended step:
+
+- Add a focused playable animation review scene or debug overlay that cycles every player/enemy direction and gait/combat strip frame so animation quality can be inspected directly outside the wave smoke path.
+
+## 2026-06-07 - Combat Weapon Sprite Strips
+
+- Extended `scripts/tools/generate_gait_sprite_strips.gd` to generate combat strip frames in addition to gait strips.
+- Generated 13 player saber strip PNGs under `assets/characters/player_animation/`, one for each player direction.
+- Generated 40 enemy weapon strip PNGs under `assets/enemies/animation/`, covering all eight directions for knife rusher, rifleman, shotgun brute, hunter, and duelist.
+- Upgraded the player contract to `player_authored_gait_and_saber_strip_v9` and added `player_generated_directional_saber_strip_v1`.
+- Upgraded the enemy contract to `enemy_all_roles_authored_gait_and_weapon_strips_v10` and added `enemy_generated_all_roles_weapon_strip_v1`.
+- Wired the player to prefer saber strips during active slash, recovery, and sheathe frames while keeping gait strips for movement.
+- Wired all sprite-backed enemies to prefer weapon strips during attack/recovery tells while keeping gait strips for movement.
+- Kept the existing arm/leg/weapon overlays on top of strip frames so source-backed body motion and drawn weapon silhouettes reinforce each other instead of competing.
+
+Validation:
+
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-combat-strips-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0 and produced 26 player strips plus 80 enemy strips across gait and combat sets.
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-combat-strips-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-combat-strips-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-combat-strips-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=173.1 min_fps=101.7 worst_frame_ms=9.8 elapsed_ms=1100.0`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-combat-strips-visual-visible.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke scenarios.
+
+Next recommended step:
+
+- Improve the generated combat strips with role-specific weapon silhouettes baked into the source frames, starting with rifle barrels/shotgun braces and player saber arcs, so fewer weapon details depend on procedural overlays.
+
+## 2026-06-07 - All-Enemy Authored Gait Strips
+
+- Extended `scripts/tools/generate_gait_sprite_strips.gd` to generate gait strips for every sprite-backed enemy archetype: knife rusher, rifleman, shotgun brute, hunter, and duelist.
+- Generated 40 enemy gait strip PNGs under `assets/enemies/animation/`, covering all eight directions for each of the five enemy roles.
+- Added role-weighted strip generation profiles so knife rushers and hunters have lighter stride offsets, shotgun brutes have heavier squash/shorter stride, and riflemen/duelists keep a balanced western gait.
+- Upgraded the shared enemy human-motion contract to `enemy_all_roles_authored_strip_keyframed_gait_weapon_grips_v9`.
+- Upgraded the enemy strip contract to `enemy_generated_all_roles_gait_strip_v2` and now require every sprite-backed enemy to load eight authored strip directions in smoke.
+- Kept the existing keyframed body, arm, leg, and weapon overlays attached to the strip frames so all enemy roles have strip-backed movement plus visible drawn weapons and support-hand poses.
+
+Validation:
+
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-all-enemy-strips-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0 and produced 40 enemy gait strip PNGs.
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-all-enemy-strips-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-all-enemy-strips-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-all-enemy-strips-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=164.0 min_fps=99.3 worst_frame_ms=10.1 elapsed_ms=1098.3`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-all-enemy-strips-visual-visible.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/visual scenarios.
+
+Next recommended step:
+
+- Add combat-specific authored strip frames for draw, slash, rifle aim, shotgun brace, and hunter lunge poses so weapon draw/attack frames are source-backed, not only overlay-backed.
+
+## 2026-06-07 - Authored Gait Sprite Strips
+
+- Added `scripts/tools/generate_gait_sprite_strips.gd` to reproducibly generate 8-frame gait strips from the existing clean directional character PNGs without installing image tooling.
+- Generated 13 player cowgirl gait strips under `assets/characters/player_animation/`, one for each existing player direction.
+- Generated 8 knife-rusher gait strips under `assets/enemies/animation/`, one for each existing enemy direction.
+- Upgraded the player human-motion contract to `player_authored_strip_keyframed_gait_saber_v8` and the strip contract to `player_generated_directional_gait_strip_v1`.
+- Upgraded the shared enemy human-motion contract to `enemy_authored_strip_keyframed_gait_weapon_grips_v8` and added the knife-rusher strip contract `enemy_generated_knife_rusher_gait_strip_v1`.
+- Wired the player and knife rusher to use generated strip frames while moving, with the v7 keyframed body/weapon overlays still attached as fallback and acceptance timing.
+- Strengthened the June Blackglass kill-box lane and glass-shadow rails after visible QA showed the new animated strips could reduce the cue detector margin.
+
+Validation:
+
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-gait-strip-generate.log --path . --script scripts/tools/generate_gait_sprite_strips.gd` completed with exit code 0 and produced 21 gait strip PNGs.
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-authored-strips-load2.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-authored-strips-smoke3.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-authored-strips-perf2.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=168.8 min_fps=100.9 worst_frame_ms=9.9 elapsed_ms=1097.8`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-authored-strips-visual-visible2.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/visual scenarios.
+
+Next recommended step:
+
+- Extend generated authored strips to the rifleman, shotgun brute, hunter, and duelist so every enemy archetype has strip-backed gait frames, not only the knife rusher.
+
+## 2026-06-07 - Keyframed Contact-Hold Gait
+
+- Upgraded the player human-motion overlay to `player_keyframed_body_gait_saber_v7`.
+- Replaced the player's smooth procedural gait clock with an 8-phase keyframed gait clock that holds foot-contact poses briefly, making the body bob, compression, arm swing, and saber-ready stance read closer to authored frame animation.
+- Upgraded the shared enemy human-motion overlay to `enemy_keyframed_body_gait_weapon_grips_v7`.
+- Added role-scaled keyframed gait clocks for all sprite-backed enemies: knife rushers cycle faster, shotgun brutes cycle heavier and slower, and rifle/shotgun roles keep longer planted contact holds for braced weapons.
+- Updated smoke contracts to require keyframed contact holds, whole-body bob/lean/compression, planted gait, weapon grips, and expanded marker coverage for player and enemy human motion.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-keyframed-gait-load2.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-keyframed-gait-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-keyframed-gait-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=170.0 min_fps=106.0 worst_frame_ms=9.4 elapsed_ms=1096.6`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-keyframed-gait-visual-visible.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/visual scenarios.
+
+Next recommended step:
+
+- Add actual authored sprite-strip source frames for the cowgirl or knife rusher, then keep the v7 keyframed runtime as the fallback/acceptance contract.
+
+## 2026-06-07 - Whole-Sprite Body Gait
+
+- Upgraded the player human-motion overlay to `player_whole_sprite_body_gait_saber_v6`.
+- Added gait-driven whole-body motion to the player sprite: subtle step bob, side-to-side settle, forward drive, lean, and planted-foot compression, while keeping the saber, arms, and leg overlay attached to the same moving body.
+- Upgraded the shared enemy human-motion overlay to `enemy_whole_sprite_body_gait_weapon_grips_v6`.
+- Added role-scaled whole-body gait transforms for sprite-backed enemies so knife rushers feel light, shotgun brutes feel heavier, and attack/lunge states drive the full sprite forward instead of only moving overlay limbs.
+- Updated smoke contracts to require whole-body bob, lean, compression, planted gait, role-specific weapon grips, and expanded marker coverage for player and enemy human motion.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-whole-body-gait-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-whole-body-gait-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-whole-body-gait-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=163.3 min_fps=109.6 worst_frame_ms=9.1 elapsed_ms=1098.4`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-whole-body-gait-visual-visible.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/visual scenarios.
+
+Next recommended step:
+
+- Replace the procedural cowgirl or knife-rusher motion with authored directional sprite-strip frames while keeping the v6 body-gait contracts as the runtime acceptance target.
+
+## 2026-06-07 - Role-Specific Weapon Grips
+
+- Upgraded the player human-motion overlay to `player_two_hand_saber_draw_followthrough_v5`.
+- Added a stronger two-hand saber pose for the cowgirl with an off-hand guard, visible hilt crossguard, knuckle-bow arc, and braced draw/follow-through support arm.
+- Upgraded the shared enemy human-motion overlay to `enemy_role_specific_weapon_grips_v5`.
+- Added role-specific weapon handling: riflemen brace long guns with a support hand and stock, shotgun brutes hold a heavier two-hand shotgun line, and knife rushers, hunters, and duelists keep blade-forward hands with guarding free hands.
+- Updated smoke contracts to require the new role-specific grip versions and expanded marker coverage for long-gun support hands, blade guards, hilt detail, and two-hand saber draw.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-grips-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-grips-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-role-grips-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=169.1 min_fps=98.8 worst_frame_ms=10.1 elapsed_ms=1098.0`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-role-grips-visual-visible.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+- Godot still prints the known macOS certificate warning during headless runs and the known exit-time ObjectDB leak warning after smoke/visual scenarios.
+
+Next recommended step:
+
+- Start replacing the procedural overlay for the player or knife rusher with authored directional sprite-strip frames, using the v5 human-motion contracts as the acceptance target.
+
+## 2026-06-07 - Anticipation And Follow-Through Combat Poses
+
+- Upgraded the player human-motion overlay to `player_anticipation_followthrough_gait_saber_v4`.
+- Added player dash commitment posture with lower hips, stronger forward shoulder lean, stretched planted boots, and heavier contact shadows.
+- Added saber follow-through and re-sheathe visual phases by feeding recovery and sheathe timers into the human-motion overlay, so weapon motion no longer snaps off after the active slash frame.
+- Upgraded the shared enemy human-motion overlay to `enemy_anticipation_followthrough_gait_weapon_v4`.
+- Added enemy lunge commitment detection for duelists, hunters, and knife rushers so high-speed attack movement changes torso lean, leg stretch, planted boot shadows, and weapon-hand reach.
+- Updated smoke contracts to require anticipation, follow-through, lunge commitment, and expanded marker coverage for the player and all sprite-backed enemies.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-anticipation-motion-load2.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-anticipation-motion-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-anticipation-motion-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=177.5 min_fps=99.4 worst_frame_ms=10.1 elapsed_ms=1096.9`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-anticipation-motion-visual-visible.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+
+Next recommended step:
+
+- Move from procedural overlays to authored sprite-strip animation for the cowgirl and knife rusher, preserving the v4 smoke contracts as the acceptance criteria.
+
+## 2026-06-07 - Four-Phase Gait And Weapon-Ready Poses
+
+- Upgraded the player human-motion overlay to `player_four_phase_body_gait_saber_draw_v3`.
+- Added a four-phase planted gait for the cowgirl with alternating planted boots, push-off/reach phases, contact shadows, and stronger saber-ready hold frames.
+- Upgraded the shared enemy human-motion overlay to `enemy_four_phase_role_gait_weapon_draw_v3`.
+- Added four-phase planted gait behavior for all sprite-backed enemy archetypes, including planted boot shadows, push-off/reach timing, and held weapon-ready poses during attack tells.
+- Updated smoke contracts to require the new four-phase gait versions and higher marker coverage for planted boots, body motion, arm swing, role accents, and weapon draw.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-four-phase-motion-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-four-phase-motion-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-four-phase-motion-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=177.3 min_fps=96.0 worst_frame_ms=10.4 elapsed_ms=1097.1`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-four-phase-motion-visual-visible.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+
+Next recommended step:
+
+- Generate or import true authored animation frames for the player and knife rusher, using this four-phase procedural pass as the timing reference.
+
+## 2026-06-07 - Permanent Upgrade Tokens
+
+- Added a permanent upgrade economy with 15 one-time character upgrades across survival, mobility, blade, gun, ability, reward, and style categories.
+- Added upgrade token persistence, purchased upgrade persistence, and first-time rival boss token claims to the local save data.
+- Added token rewards for completed quests and defeated duelist bosses; first defeat of each different named boss pays an extra token.
+- Added an Upgrades menu screen where players can see token balance, upgrade costs, owned state, and buy permanent benefits.
+- Applied purchased upgrades to gameplay: max health, opening grace, movement, dash timing, blade damage/range/parry, gun damage/ammo/reload, ability cooldowns, veil duration, payday credits, and combo timer length.
+- Updated the information menu and README so players can find the token and upgrade loop.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-upgrades-load4.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-upgrades-smoke2.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- Godot still prints the known macOS certificate warning and exit-time ObjectDB leak warning during headless runs.
+
+Next recommended step:
+
+- Add stronger upgrade affordances in the result screen, such as showing tokens earned this run and highlighting the next affordable permanent upgrade.
+
+## 2026-06-07 - Body-Led Character Motion
+
+- Upgraded the player human-motion overlay to `player_directional_body_lean_gait_saber_draw_v2`.
+- Added player torso lean, shoulder/hip counter-motion, coat-tail movement, neck/head motion markers, and a more braced saber-draw posture so the cowgirl reads as a full body moving rather than only animated arms and legs.
+- Upgraded the shared enemy human-motion overlay to `enemy_role_body_lean_gait_weapon_draw_v2`.
+- Added enemy torso lean, role-scaled body bulk, shoulder/hip counter-motion, coat-tail movement, attack bracing, and stronger off-hand/weapon-hand pose shifts across rushers, riflemen, shotgun brutes, hunters, and duelists.
+- Strengthened the June Blackglass kill-box lane and glass-shadow cue slightly after visual QA showed the new character overlays reduced the screenshot detector margin.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-body-led-motion-load2.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-body-led-motion-smoke2.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-body-led-motion-perf2.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=169.9 min_fps=113.9 worst_frame_ms=8.8 elapsed_ms=1096.2`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-body-led-motion-visual-visible2.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+
+Next recommended step:
+
+- Begin replacing the procedural player and knife-rusher overlays with authored sprite animation strips, using the new body-led contracts as the acceptance target.
+
+## 2026-06-07 - Human Motion Contracts And Rusher Weapon Draw
+
+- Updated the player sprite visual contract from the old locked whole-body marker to `player_directional_human_motion_weapon_draw_v1`, matching the new direction-aware cowgirl movement.
+- Added explicit player smoke hooks for `player_directional_gait_arms_saber_draw_v1` and marker coverage for alternating boots, arm swing, idle breathing, holster detail, spur dust, and saber draw.
+- Updated the enemy sprite visual contract to `enemy_directional_human_motion_weapon_draw_v1` with a shared `enemy_role_gait_arms_weapon_draw_v1` hook for all sprite-backed enemy archetypes.
+- Added enemy smoke coverage for gait legs, boot contacts, arm swing, role accents, and weapon draw markers so the test suite now checks the actual human-motion goal.
+- Improved knife rusher weapon draw behavior by feeding swarm warnings and fast chase movement into the shared attack-motion ratio, making the knife read as drawn during pressure instead of only sitting as a static overlay.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-human-motion-contract-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-human-motion-contract-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-human-motion-contract-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=172.4 min_fps=100.6 worst_frame_ms=9.9 elapsed_ms=1097.7`.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-human-motion-contract-visual-visible.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+
+Next recommended step:
+
+- Replace the procedural limb overlays with authored animation strips for the player and knife rusher first, preserving the new smoke hooks so the authored frames still prove directional gait, arm motion, and weapon draw.
+
+## 2026-06-07 - Human Sprite Motion And Weapon Draw
+
+- Added directional player sprite selection during movement and saber attacks so the cowgirl no longer stays locked to the angled pose.
+- Added a player human-motion overlay on top of the clean whole-body sprite: alternating boots, arm swing, idle breathing, spur dust, holstered saber detail, and a visible saber draw/swing during attacks.
+- Added a shared enemy human-motion overlay for all sprite-backed archetypes: gaiting legs, boot contacts, arm motion, role-colored clothing accents, and weapon draw poses for knives, rifles, shotguns, hunter blades, and duelist sabers.
+- Kept the pass procedural and state-gated so it improves the existing top-down assets without regenerating sprite sheets or adding new executable/tool artifacts to the NAS-backed project.
+- Fixed two typed-GDScript inference annotations in `scripts/game/main.gd` that blocked project validation before gameplay loaded.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-human-motion.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-human-motion-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-human-motion-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=170.1 min_fps=98.0 worst_frame_ms=10.2 elapsed_ms=1099.7`.
+- Headless `--dust-visual-qa` could not capture viewport images because Godot used the dummy renderer.
+- Visible `.tools/godot/godot --log-file /tmp/dust-heist-human-motion-visual-visible.log --path . -- --dust-visual-qa` completed with exit code 0 and reported `DUST_VISUAL_QA: PASS` with 17 captures under `artifacts/qa/`.
+
+Next recommended step:
+
+- Add authored frame-strip animation or per-direction limb sprites for the player and one enemy archetype, starting with the knife rusher, so the procedural overlays can be replaced by cleaner source-art animation where it matters most.
+
+## 2026-06-07 - Memory Logging And Menu Orphan Fix
+
+- Added `--dust-memory-log` with `memory_release_leak_probe_v1` to print one-line memory snapshots during startup, live sampling, and repeatable perf scenarios.
+- Added HUD-side menu memory snapshots with `main_menu_memory_release_probe_v1`, including menu loaded state, menu node count, menu button/card dictionary counts, object/resource/node counts, orphan nodes, and static/render memory counters.
+- Fixed the menu release path so `_release_main_menu()` clears freed menu references instead of immediately creating unparented replacement controls.
+- Confirmed the previous post-release `orphan_nodes=17` issue now drops to `orphan_nodes=0` after the menu is released during gameplay.
+- Documented the memory logging command in `README.md`.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-memory-menu.log --path . -- --dust-memory-log --dust-menu-performance-test` completed with exit code 0 and reported `DUST_MENU_PERF: PASS samples=180 avg_fps=453.5 min_fps=117.5 worst_frame_ms=8.5 elapsed_ms=1234.8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-memory-combat-fixed.log --path . -- --dust-memory-log --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=174.5 min_fps=81.6 worst_frame_ms=12.3 elapsed_ms=1096.6`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-memory-smoke.log --path . -- --dust-memory-log --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`; menu release stayed at `orphan_nodes=0`.
+- `.tools/godot/godot --headless --verbose --log-file /tmp/dust-heist-memory-smoke-verbose.log --path . -- --dust-memory-log --dust-smoke-test` completed with exit code 0 and showed repeated enemy turn-around texture loading during wave progression, with no orphan-node growth in the memory snapshots.
+- Visible Metal menu sampling with `--dust-memory-log --dust-perf-log` showed menu idle at about 7.6 MB texture memory, 4.2 MB buffer memory, 54.6 MB video memory, 663 draw calls, and 2,048 render objects.
+- Visible Metal wave-8 combat sampling showed the released-menu gameplay path at about 19.2 MB texture memory, 5.0 MB buffer memory, 93.5 MB video memory, 1,532 draw calls, and 4,170 render objects.
+
+Next recommended step:
+
+- Reduce combat texture pressure by consolidating or lazy-caching enemy turn-around sprite loads; verbose output shows the same directional enemy textures being requested repeatedly as waves spawn.
+
+## 2026-06-07 - Release Main Menu During Gameplay
+
+- Added `main_menu_release_on_gameplay_v1` so the main menu is no longer just hidden after gameplay starts.
+- `hide_main_menu()` now hides the menu, restores the gameplay HUD, then releases the menu subtree and clears its button/card/loadout node dictionaries.
+- `show_main_menu()` now rebuilds the menu on demand, preserving unlocked/equipped loadout state from the HUD data arrays.
+- Extended smoke coverage to verify the menu is loaded for menu visual checks, released during gameplay, and can be rebuilt again.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-menu-release-smoke2.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-menu-release-perf.log --path . -- --dust-menu-performance-test` completed with exit code 0 and reported `DUST_MENU_PERF: PASS samples=180 avg_fps=453.4 min_fps=117.7 worst_frame_ms=8.5 elapsed_ms=1236.4`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-menu-release-combat-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=168.8 min_fps=91.4 worst_frame_ms=10.9 elapsed_ms=1097.0`.
+- The short headless shutdown still printed Godot exit-time RID/ObjectDB leak warnings; the scenarios completed successfully, but a later cleanup pass should inspect remaining transient HUD/render objects under verbose shutdown.
+
+Next recommended step:
+
+- Add live memory logging before and after `hide_main_menu()` in a visible run so the exact menu-release memory savings can be measured on Metal, then continue with low-detail idle states for the custom nav buttons.
+
+## 2026-06-07 - Low-Batch Idle Menu Optimization
+
+- Reduced the main menu backdrop to `menu_backdrop_static_low_batch_v1`, keeping the western street, title plaque, sun, lantern, storefront, and dust cues while cutting decorative redraw primitives.
+- Simplified the default overview screen from four stamped ledger cards to two combined summary cards so the idle menu starts with fewer custom panel draws and child controls.
+- Updated the main menu visual smoke contract in `scripts/game/main.gd` to require the optimized two-card overview while preserving the stamped ledger detail checks.
+
+Validation:
+
+- `git diff --check` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-opt2-menu-perf.log --path . -- --dust-menu-performance-test` completed with exit code 0 and reported `DUST_MENU_PERF: PASS samples=180 avg_fps=324.4 min_fps=118.7 worst_frame_ms=8.4 elapsed_ms=1234.4`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-opt2-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`; Godot also printed the known exit-time leaked-object warning.
+- Visible Metal menu sampling improved from about 751 draw calls, 3,606 render objects, 27,768 primitives, and 86-89 MB video memory before optimization to 663 draw calls, 2,048 render objects, 21,872 primitives, and 54.6 MB video memory after the backdrop and overview-card passes.
+
+Next recommended step:
+
+- Continue with a low-detail idle state for the six main menu navigation buttons, because they remain custom-drawn every frame and are now the clearest remaining menu-side draw-call target.
+
+## 2026-06-07 - Aimbotic Supabase Ref Refresh
+
+- Updated the active Supabase pin from the deleted Aimbotic project to new project ref `uotzmpttpekpkcjxurjj`.
+- Updated `.env.example`, `README.md`, `docs/supabase.md`, and `scripts/systems/supabase_config.gd` to use `https://uotzmpttpekpkcjxurjj.supabase.co`.
+- Kept the Trusted Bums ref `vaoqvtxqvbptyxddpoju` explicitly blocked.
+- Preserved the project table naming rule: new database tables should use the `heist_` prefix.
+
+Validation:
+
+- Static search confirmed the active docs/config use `uotzmpttpekpkcjxurjj`; the old deleted ref remains only in historical progress notes.
+
+Next recommended step:
+
+- If Supabase schema work starts, create only `heist_`-prefixed tables in the new Aimbotic project.
+
+## 2026-06-07 - Perf Overlay And Scenario Logs
+
+- Added `PERF_TELEMETRY_VERSION` `perf_overlay_render_monitor_logging_v1` in `scripts/game/main.gd`.
+- Added a live performance overlay that can be enabled with `--dust-perf-overlay` or toggled while playing with F3.
+- Added one-second live perf logs with `--dust-perf-log`, reporting FPS, process/physics time, draw calls, render objects, primitives, texture/video memory, enemy count, active VFX count, and redraw counters.
+- Added repeatable scenario checks: `--dust-menu-performance-test`, existing `--dust-performance-test` for wave 8 combat, and `--dust-heavy-combat-performance-test` for wave 10 plus staged VFX pressure.
+- Added `VfxLayer.get_active_effect_count()` so perf logs can correlate frame drops with active transient effects.
+- Documented the perf commands in `README.md`.
+
+Validation:
+
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-load.log --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-menu-perf.log --path . -- --dust-menu-performance-test` completed with exit code 0 and reported `DUST_MENU_PERF: PASS samples=180 avg_fps=234.2 min_fps=99.9 worst_frame_ms=10.0 elapsed_ms=1234.4`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-combat-perf.log --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=171.2 min_fps=84.0 worst_frame_ms=11.9 elapsed_ms=1096.9 arena_interval=0.250 overlay_interval=0.333`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-heavy-perf.log --path . -- --dust-heavy-combat-performance-test` completed with exit code 0 and reported `DUST_HEAVY_PERF: PASS samples=180 avg_fps=166.3 min_fps=111.2 worst_frame_ms=9.0 elapsed_ms=1235.4`.
+- `.tools/godot/godot --headless --log-file /tmp/dust-heist-smoke.log --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`; Godot also printed an exit-time leaked-object warning.
+- Visible overlay/log run on Metal showed idle menu around 751 draw calls, 3,600 render objects, and 27,700 primitives, making menu/backdrop/HUD canvas caching the next likely optimization target.
+
+Next recommended step:
+
+- Cache the static main menu backdrop and decorative HUD/menu hardware into textures or lower-detail static nodes so idle menu draw calls and primitive count drop before tuning combat.
+
+## 2026-06-06 - Mac Runtime Lag Diagnosis And Texture Import Caps
+
+- Ran the visible Godot game in debug and sampled the process. The hot path was the Metal render/present path waiting for a display drawable, with canvas rendering visible in the sample, not gameplay physics or Supabase work.
+- Confirmed the runtime PNG imports were full-size: player/enemy sprites were hundreds of pixels tall while rendering near 100 px in-game, and the sand tile imported at 1344x1008.
+- Added runtime import caps so player sprites, enemy sprites, and blood splats import with `process/size_limit=256`; the sand tile imports with `process/size_limit=512`.
+- Disabled high-DPI rendering with `window/dpi/allow_hidpi=false` to reduce Retina pixel load in the Mac window.
+- Rebuilt the local Godot import cache after changing import settings.
+
+Validation:
+
+- `.tools/godot/godot --headless --path . --quit` completed with exit code 0.
+- `.tools/godot/godot --headless --path . -- --dust-performance-test` completed with exit code 0 and reported `DUST_PERF: PASS version=headless_runtime_fps_sampler_v1 samples=160 avg_fps=146.6 min_fps=104.5 worst_frame_ms=9.6 elapsed_ms=1228.5 arena_interval=0.250 overlay_interval=0.333`.
+- `.tools/godot/godot --headless --path . -- --dust-smoke-test` completed with exit code 0 and reported `DUST_SMOKE: PASS waves=10 enemies_defeated=112 hazards=8`; Godot also printed an exit-time leaked-object warning.
+
+Next recommended step:
+
+- If the visible game still stutters, profile the menu and first combat minute separately, then cache or simplify the remaining custom canvas draw batches in `scripts/ui/hud.gd` and `scripts/game/main.gd`.
+
+## 2026-06-06 - Aimbotic Supabase Project Pin
+
+- Added `scripts/systems/supabase_config.gd` as a Godot autoload guard for Supabase settings.
+- Pinned Supabase to Aimbotic project ref `glkijkkomwdsfbrbyjww` and URL `https://glkijkkomwdsfbrbyjww.supabase.co`.
+- Explicitly blocked Trusted Bums project ref `vaoqvtxqvbptyxddpoju` in the runtime guard and docs.
+- Added `.env.example` and `docs/supabase.md` so local setup and future Supabase client work use the pinned Aimbotic project only.
+
+Validation:
+
+- Queried the scoped `supabase-aimbotic` MCP server for the project URL and confirmed it returned `https://glkijkkomwdsfbrbyjww.supabase.co`.
+- Static search confirmed the allowed ref appears in the env example, docs, README, and guard; the blocked ref appears only in explicit block/guard text.
+- Godot headless validation was not run because no local Godot binary is available in this workspace.
+
+Next recommended step:
+
+- When a Supabase client is added, gate client creation behind `SupabaseConfig.is_connection_ready()`.
+
 ## 2026-06-05 - Browser Stutter And Whole-Body Sprite Recovery
 
 - Kept the player sprite fix in `scripts/player/player.gd`: the hero now uses one locked whole-body angled sprite while moving instead of splitting torso/legs during walk and run frames.

@@ -24,6 +24,13 @@ var weapon_parry_time := 0.08
 var max_health := 3.0
 var health := 3.0
 var invulnerable := false
+var upgrade_modifiers := {}
+
+const BASE_MAX_SPEED := 630.0
+const BASE_ACCELERATION := 3900.0
+const BASE_DASH_SPEED := 1770.0
+const BASE_DASH_DURATION := 0.13
+const BASE_DASH_COOLDOWN := 0.9
 
 const PLAYER_RADIUS := 22.0
 const CORRIDOR_HALF_WIDTH := 36.0
@@ -43,7 +50,13 @@ const PLAYER_SPRITE_BOTTOM_LEFT_PATH := "res://assets/characters/player_turnarou
 const PLAYER_SPRITE_BOTTOM_RIGHT_PATH := "res://assets/characters/player_turnaround/player_cowgirl_bottom_right_3d_topdown_v001.png"
 const PLAYER_SPRITE_TARGET_HEIGHT := 118.0
 const PLAYER_HERO_VISUAL_VERSION := "denim_brass_hero_whole_sprite_browser_safe_v12"
-const PLAYER_GROUNDED_SPRITE_VISUAL_VERSION := "player_locked_whole_body_sprite_perf_v14"
+const PLAYER_GROUNDED_SPRITE_VISUAL_VERSION := "player_directional_human_motion_weapon_draw_v1"
+const PLAYER_HUMAN_MOTION_VISUAL_VERSION := "player_body_attached_carried_saber_gait_strip_v21"
+const PLAYER_GAIT_STRIP_VISUAL_VERSION := "player_body_attached_carried_saber_gait_strip_v5"
+const PLAYER_COMBAT_STRIP_VISUAL_VERSION := "player_gameplay_scaled_anchored_saber_strip_v5"
+const PLAYER_ANIMATION_STRIP_BUDGET_VERSION := "player_animation_strip_texture_budget_v1"
+const PLAYER_STRIP_OVERLAY_MODE_VERSION := "player_strip_backed_clean_overlay_suppression_v1"
+const PLAYER_LOW_SPEED_GAIT_THRESHOLD_SQ := 16.0
 const PLAYER_MOTION_REDRAW_INTERVAL := 1.0 / 8.0
 const PLAYER_IDLE_REDRAW_INTERVAL := 1.0 / 4.0
 const PLAYER_OVERLAY_MOVEMENT_SUPPRESSION_SPEED_SQ := 1600.0
@@ -52,6 +65,8 @@ const PLAYER_SAFE_SOURCE_CROP_VISUAL_VERSION := "player_directional_uncropped_fu
 var _arena_bounds := Rect2()
 var _character_texture: Texture2D
 var _direction_textures: Dictionary = {}
+var _direction_gait_strip_textures: Dictionary = {}
+var _direction_combat_strip_textures: Dictionary = {}
 
 var _dash_time := 0.0
 var _dash_cooldown_remaining := 0.0
@@ -72,6 +87,7 @@ var _anim_time := 0.0
 var _moving := false
 var _motion_redraw_timer := 0.0
 var _sprite_direction_key := "angled"
+var _weapon_profile_id := "saber"
 
 func _ready() -> void:
 	z_index = 20
@@ -188,6 +204,12 @@ func apply_dust_veil(duration: float) -> void:
 	queue_redraw()
 
 func apply_weapon_profile(profile_id: String) -> void:
+	_weapon_profile_id = profile_id
+	_apply_weapon_profile_base(profile_id)
+	_apply_upgrade_modifiers()
+	queue_redraw()
+
+func _apply_weapon_profile_base(profile_id: String) -> void:
 	match profile_id:
 		"black_sash_saber":
 			weapon_range = 146.0
@@ -231,7 +253,32 @@ func apply_weapon_profile(profile_id: String) -> void:
 			weapon_active_time = 0.09
 			weapon_cooldown = 0.0
 			weapon_parry_time = 0.08
+
+func set_upgrade_modifiers(modifiers: Dictionary) -> void:
+	upgrade_modifiers = modifiers.duplicate(true)
+	_apply_upgrade_modifiers()
 	queue_redraw()
+
+func _apply_upgrade_modifiers() -> void:
+	max_speed = BASE_MAX_SPEED
+	acceleration = BASE_ACCELERATION
+	dash_speed = BASE_DASH_SPEED
+	dash_duration = BASE_DASH_DURATION
+	dash_cooldown = BASE_DASH_COOLDOWN
+	_apply_weapon_profile_base(_weapon_profile_id)
+	max_speed *= float(upgrade_modifiers.get("move_speed", 1.0))
+	acceleration *= float(upgrade_modifiers.get("acceleration", 1.0))
+	dash_speed *= float(upgrade_modifiers.get("dash_speed", 1.0))
+	dash_duration *= float(upgrade_modifiers.get("dash_duration", 1.0))
+	dash_cooldown *= float(upgrade_modifiers.get("dash_cooldown", 1.0))
+	weapon_range *= float(upgrade_modifiers.get("blade_range", 1.0))
+	weapon_damage *= float(upgrade_modifiers.get("blade_damage", 1.0))
+	weapon_parry_time *= float(upgrade_modifiers.get("parry_time", 1.0))
+	var upgraded_max_health := 3.0 + float(upgrade_modifiers.get("max_health_bonus", 0.0))
+	var health_delta := upgraded_max_health - max_health
+	max_health = upgraded_max_health
+	if health_delta > 0.0:
+		health = minf(max_health, health + health_delta)
 
 func get_aim_direction() -> Vector2:
 	return _dash_direction.normalized()
@@ -248,11 +295,41 @@ func get_player_grounded_sprite_visual_version() -> String:
 func get_player_sprite_material_marker_count() -> int:
 	return 12
 
+func get_player_human_motion_visual_version() -> String:
+	return PLAYER_HUMAN_MOTION_VISUAL_VERSION
+
+func get_player_human_motion_marker_count() -> int:
+	return 200
+
+func get_player_gait_strip_visual_version() -> String:
+	return PLAYER_GAIT_STRIP_VISUAL_VERSION
+
+func get_player_gait_strip_direction_count() -> int:
+	return _direction_gait_strip_textures.size()
+
+func get_player_combat_strip_visual_version() -> String:
+	return PLAYER_COMBAT_STRIP_VISUAL_VERSION
+
+func get_player_combat_strip_direction_count() -> int:
+	return _direction_combat_strip_textures.size()
+
+func get_player_animation_strip_budget_version() -> String:
+	return PLAYER_ANIMATION_STRIP_BUDGET_VERSION
+
+func get_player_strip_overlay_mode_version() -> String:
+	return PLAYER_STRIP_OVERLAY_MODE_VERSION
+
+func get_player_animation_strip_total_pixels() -> int:
+	return _get_strip_texture_total_pixels(_direction_gait_strip_textures) + _get_strip_texture_total_pixels(_direction_combat_strip_textures)
+
+func get_player_animation_strip_max_height() -> int:
+	return maxi(_get_strip_texture_max_height(_direction_gait_strip_textures), _get_strip_texture_max_height(_direction_combat_strip_textures))
+
 func get_player_motion_redraw_interval() -> float:
 	return PLAYER_MOTION_REDRAW_INTERVAL
 
 func get_player_overlay_movement_gate_version() -> String:
-	return "player_whole_sprite_no_body_overlay_v3"
+	return "player_sprite_human_motion_overlay_v1"
 
 func get_player_safe_source_crop_visual_version() -> String:
 	return PLAYER_SAFE_SOURCE_CROP_VISUAL_VERSION
@@ -402,16 +479,131 @@ func _load_character_texture() -> void:
 		"bottom_left": load(PLAYER_SPRITE_BOTTOM_LEFT_PATH) as Texture2D,
 		"bottom_right": load(PLAYER_SPRITE_BOTTOM_RIGHT_PATH) as Texture2D,
 	}
+	_direction_gait_strip_textures.clear()
+	_direction_combat_strip_textures.clear()
+	for key in _direction_textures.keys():
+		var strip_path := "res://assets/characters/player_animation/player_cowgirl_%s_gait_strip_v001.png" % str(key)
+		var strip_texture := _load_png_texture(strip_path)
+		if strip_texture != null:
+			_direction_gait_strip_textures[key] = strip_texture
+		var combat_strip_path := "res://assets/characters/player_animation/player_cowgirl_%s_saber_strip_v001.png" % str(key)
+		var combat_strip_texture := _load_png_texture(combat_strip_path)
+		if combat_strip_texture != null:
+			_direction_combat_strip_textures[key] = combat_strip_texture
 
 func _draw_character_sprite() -> void:
 	var texture := _get_character_texture_for_direction()
 	var source_rect := _get_character_source_rect(texture)
+	var strip_texture := _get_player_combat_strip_texture()
+	if strip_texture == null:
+		strip_texture = _get_player_gait_strip_texture()
+	var using_animation_strip := false
+	if strip_texture != null:
+		texture = strip_texture
+		source_rect = _get_player_strip_source_rect(strip_texture, _get_player_strip_frame_index())
+		using_animation_strip = true
 	var visual_size := _get_scaled_source_size(source_rect)
 	var draw_position := Vector2(-visual_size.x * 0.5, -visual_size.y * 0.5 + 8.0)
+	var body_pose := _get_player_body_gait_pose()
+	draw_set_transform(body_pose["offset"], body_pose["rotation"], body_pose["scale"])
 	_draw_running_sprite(texture, draw_position, visual_size, source_rect)
+	if not using_animation_strip:
+		_draw_player_human_motion_overlay(visual_size)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _draw_running_sprite(texture: Texture2D, draw_position: Vector2, visual_size: Vector2, source_rect: Rect2) -> void:
 	draw_texture_rect_region(texture, Rect2(draw_position, visual_size), source_rect)
+
+func _load_png_texture(path: String) -> Texture2D:
+	var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+	if image == null or image.is_empty():
+		return null
+	return ImageTexture.create_from_image(image)
+
+func _get_strip_texture_total_pixels(textures: Dictionary) -> int:
+	var total := 0
+	for texture in textures.values():
+		if texture is Texture2D:
+			total += int(texture.get_width() * texture.get_height())
+	return total
+
+func _get_strip_texture_max_height(textures: Dictionary) -> int:
+	var max_height := 0
+	for texture in textures.values():
+		if texture is Texture2D:
+			max_height = maxi(max_height, int(texture.get_height()))
+	return max_height
+
+func _get_player_gait_strip_texture() -> Texture2D:
+	if velocity.length_squared() <= PLAYER_LOW_SPEED_GAIT_THRESHOLD_SQ and _dash_time <= 0.0:
+		return null
+	return _direction_gait_strip_textures.get(_sprite_direction_key, null)
+
+func _get_player_combat_strip_texture() -> Texture2D:
+	if _weapon_active_remaining <= 0.0 and _weapon_recovery_remaining <= 0.0 and _weapon_sheathe_delay_remaining <= 0.0:
+		return null
+	return _direction_combat_strip_textures.get(_sprite_direction_key, null)
+
+func _get_player_strip_source_rect(texture: Texture2D, frame_index: int) -> Rect2:
+	var frame_width := texture.get_width() / 8.0
+	return Rect2(Vector2(frame_width * float(frame_index), 0.0), Vector2(frame_width, texture.get_height()))
+
+func _get_player_strip_frame_index() -> int:
+	if _weapon_active_remaining > 0.0 or _weapon_recovery_remaining > 0.0 or _weapon_sheathe_delay_remaining > 0.0:
+		return _get_player_combat_strip_frame_index()
+	var movement_ratio: float = clampf(velocity.length() / maxf(max_speed, 1.0), 0.0, 1.0)
+	var clock := _get_player_keyframed_gait_clock(movement_ratio)
+	return int(floor(wrapf(clock, 0.0, TAU) / (TAU / 8.0))) % 8
+
+func _get_player_combat_strip_frame_index() -> int:
+	if _weapon_active_remaining > 0.0:
+		var active_progress := 1.0 - clampf(_weapon_active_remaining / maxf(weapon_active_time, 0.01), 0.0, 1.0)
+		return clampi(int(floor(active_progress * 4.0)) + 2, 2, 5)
+	if _weapon_recovery_remaining > 0.0:
+		var recovery_progress := 1.0 - clampf(_weapon_recovery_remaining / maxf(weapon_recovery_time, 0.01), 0.0, 1.0)
+		return clampi(int(floor(recovery_progress * 2.0)) + 5, 5, 6)
+	return 7
+
+func _get_player_body_gait_pose() -> Dictionary:
+	var facing := _dash_direction.normalized()
+	if velocity.length_squared() > PLAYER_LOW_SPEED_GAIT_THRESHOLD_SQ:
+		facing = velocity.normalized()
+	elif _weapon_active_remaining > 0.0:
+		facing = _weapon_swing_direction.normalized()
+	if facing.length_squared() <= 0.001:
+		facing = Vector2.RIGHT
+	var movement_ratio: float = clampf(velocity.length() / maxf(max_speed, 1.0), 0.0, 1.0)
+	var dash_ratio: float = clampf(_dash_time / maxf(dash_duration, 0.01), 0.0, 1.0)
+	var draw_ratio: float = clampf(_weapon_active_remaining / maxf(weapon_active_time, 0.01), 0.0, 1.0)
+	var recovery_ratio: float = clampf(_weapon_recovery_remaining / maxf(weapon_recovery_time, 0.01), 0.0, 1.0)
+	var weapon_pose_ratio := maxf(draw_ratio, recovery_ratio * 0.72)
+	var idle_ratio: float = clampf(1.0 - movement_ratio - dash_ratio - weapon_pose_ratio, 0.0, 1.0)
+	var gait_clock := _get_player_keyframed_gait_clock(movement_ratio)
+	var footfall := absf(sin(gait_clock))
+	var sway := cos(gait_clock)
+	var idle_breath := sin(_anim_time * 2.1) * idle_ratio
+	var idle_sway := cos(_anim_time * 1.35) * idle_ratio
+	var body_drop := footfall * movement_ratio * 2.4 + dash_ratio * 1.4 + idle_breath * 1.15
+	var forward_drive := movement_ratio * 1.2 + dash_ratio * 4.2 + weapon_pose_ratio * 2.0
+	var side_settle := sway * movement_ratio * 1.7 + idle_sway * 0.75
+	var rotation := clampf(sway * movement_ratio * 0.018 + idle_sway * 0.006 + facing.x * (dash_ratio * 0.035 + weapon_pose_ratio * 0.018), -0.075, 0.075)
+	var compression := clampf(footfall * movement_ratio * 0.018 + dash_ratio * 0.026 + weapon_pose_ratio * 0.012 + maxf(0.0, idle_breath) * 0.009, 0.0, 0.055)
+	return {
+		"offset": facing * forward_drive + facing.orthogonal() * side_settle + Vector2(0.0, body_drop),
+		"rotation": rotation,
+		"scale": Vector2(1.0 + compression * 0.55, 1.0 - compression),
+	}
+
+func _get_player_keyframed_gait_clock(movement_ratio: float) -> float:
+	if movement_ratio <= 0.05:
+		return _anim_time * lerpf(2.0, 4.0, movement_ratio)
+	var frame_count := 8.0
+	var raw_clock := _anim_time * lerpf(3.0, 12.0, movement_ratio)
+	var cycle := wrapf(raw_clock / TAU, 0.0, 1.0)
+	var frame_index: float = floor(cycle * frame_count)
+	var frame_progress: float = cycle * frame_count - frame_index
+	var eased_progress := smoothstep(0.18, 0.82, frame_progress)
+	return ((frame_index + eased_progress) / frame_count) * TAU
 
 func _request_motion_redraw(force: bool = false) -> void:
 	if force:
@@ -459,7 +651,7 @@ func _get_character_visual_size() -> Vector2:
 	return Vector2(72.0, 110.0)
 
 func _get_character_texture_for_direction() -> Texture2D:
-	var key := "angled"
+	var key := _get_character_texture_key_for_direction()
 	_sprite_direction_key = key
 	var directional_texture: Texture2D = _direction_textures.get(key, null)
 	if directional_texture != null:
@@ -472,6 +664,10 @@ func _is_using_stable_run_sprite() -> bool:
 func _get_character_texture_key_for_direction() -> String:
 	var key := _sprite_direction_key
 	var facing := _dash_direction.normalized()
+	if velocity.length_squared() > PLAYER_LOW_SPEED_GAIT_THRESHOLD_SQ:
+		facing = velocity.normalized()
+	elif _weapon_active_remaining > 0.0:
+		facing = _weapon_swing_direction.normalized()
 	if absf(facing.x) > 0.35 and absf(facing.y) > 0.35:
 		if facing.y > 0.0:
 			key = "bottom_right" if facing.x > 0.0 else "bottom_left"
@@ -498,6 +694,114 @@ func _get_directional_source_crop_rect(texture_size: Vector2, key: String) -> Re
 func _get_scaled_source_size(source_rect: Rect2) -> Vector2:
 	var sprite_scale := PLAYER_SPRITE_TARGET_HEIGHT / maxf(source_rect.size.y, 1.0)
 	return source_rect.size * sprite_scale
+
+func _draw_player_human_motion_overlay(visual_size: Vector2) -> void:
+	var facing := _dash_direction.normalized()
+	if velocity.length_squared() > PLAYER_LOW_SPEED_GAIT_THRESHOLD_SQ:
+		facing = velocity.normalized()
+	elif _weapon_active_remaining > 0.0:
+		facing = _weapon_swing_direction.normalized()
+	if facing.length_squared() <= 0.001:
+		facing = Vector2.RIGHT
+	var side := facing.orthogonal()
+	var movement_ratio: float = clampf(velocity.length() / maxf(max_speed, 1.0), 0.0, 1.0)
+	var dash_ratio: float = clampf(_dash_time / maxf(dash_duration, 0.01), 0.0, 1.0)
+	var draw_ratio: float = clampf(_weapon_active_remaining / maxf(weapon_active_time, 0.01), 0.0, 1.0)
+	var recovery_ratio: float = clampf(_weapon_recovery_remaining / maxf(weapon_recovery_time, 0.01), 0.0, 1.0)
+	var sheathe_ratio: float = clampf(_weapon_sheathe_delay_remaining / maxf(weapon_sheathe_delay, 0.01), 0.0, 1.0)
+	var weapon_pose_ratio := maxf(draw_ratio, maxf(recovery_ratio * 0.72, sheathe_ratio * 0.42))
+	var gait_clock := _get_player_keyframed_gait_clock(movement_ratio)
+	var step := sin(gait_clock)
+	var counter_step := cos(gait_clock)
+	var gait_frame := int(floor(wrapf(gait_clock, 0.0, TAU) / (TAU * 0.25))) % 4
+	var left_planted := gait_frame == 0 or gait_frame == 3
+	var right_planted := gait_frame == 1 or gait_frame == 2
+	var push_power := maxf(1.0 if gait_frame == 1 or gait_frame == 3 else 0.35, dash_ratio)
+	var reach_power := maxf(1.0 if gait_frame == 0 or gait_frame == 2 else 0.45, dash_ratio * 0.85)
+	var idle_breath := sin(_anim_time * 2.2) * (1.0 - movement_ratio) * 1.4
+	var shoulder_y := clampf(-visual_size.y * 0.1, -18.0, -8.0) + idle_breath
+	var hip_y := clampf(visual_size.y * 0.08, 4.0, 14.0) + idle_breath
+	var boot_y := clampf(visual_size.y * 0.36, 30.0, 48.0)
+	var shoulder_half := clampf(visual_size.x * 0.18, 12.0, 22.0)
+	var hip_half := clampf(visual_size.x * 0.13, 9.0, 17.0)
+	var stride := step * lerpf(2.5, 12.0, movement_ratio + dash_ratio * 0.45)
+	var lift := absf(step) * 3.0 * movement_ratio
+	var denim := Color(0.27, 0.48, 0.64, 0.42 + movement_ratio * 0.12)
+	var leather := Color(0.035, 0.018, 0.01, 0.58)
+	var brass := Color(0.98, 0.72, 0.28, 0.42 + weapon_pose_ratio * 0.25)
+	var bone := Color(0.94, 0.88, 0.68, 0.34 + weapon_pose_ratio * 0.28)
+	var draw_hold := 1.0 if draw_ratio > 0.55 else draw_ratio * 1.8
+	var followthrough_hold := recovery_ratio * 0.75 + sheathe_ratio * 0.35
+	var weapon_hold := maxf(draw_hold, followthrough_hold)
+	var torso_lean := facing * (movement_ratio * (3.6 + push_power * 1.4) + dash_ratio * 11.0 + weapon_hold * 5.0)
+	var shoulder_center := Vector2(0.0, shoulder_y) + torso_lean + side * counter_step * movement_ratio * (1.8 + reach_power * 0.8) - side * draw_hold * 3.0
+	var hip_center := Vector2(0.0, hip_y) + facing * movement_ratio * 1.2 - side * counter_step * movement_ratio * 1.8
+	if dash_ratio > 0.0:
+		hip_center -= facing * dash_ratio * 4.0
+		shoulder_center += facing * dash_ratio * 5.0
+	var neck_center := shoulder_center - facing * 6.0 + Vector2(0.0, -5.0)
+	var coat_tail := hip_center - facing * (16.0 + movement_ratio * 5.0) - torso_lean * 0.35
+	var torso_alpha := 0.18 + movement_ratio * 0.1 + draw_ratio * 0.1
+	draw_line(hip_center + Vector2(2.0, 3.0), shoulder_center + Vector2(2.0, 3.0), Color(0.02, 0.01, 0.005, 0.24), 8.0)
+	draw_line(hip_center, shoulder_center, Color(0.22, 0.42, 0.58, torso_alpha), 5.2)
+	draw_line(shoulder_center - side * shoulder_half * 0.88, shoulder_center + side * shoulder_half * 0.88, Color(0.94, 0.82, 0.54, 0.22 + draw_ratio * 0.16), 2.4)
+	draw_line(hip_center - side * hip_half * 1.05, hip_center + side * hip_half * 1.05, brass, 2.0)
+	draw_line(hip_center - side * hip_half * 0.5, coat_tail - side * (5.0 + movement_ratio * 3.0), Color(0.035, 0.018, 0.01, 0.28 + movement_ratio * 0.16), 3.0)
+	draw_line(hip_center + side * hip_half * 0.5, coat_tail + side * (5.0 + movement_ratio * 3.0), Color(0.035, 0.018, 0.01, 0.24 + movement_ratio * 0.14), 3.0)
+	draw_circle(neck_center, 2.2, Color(0.94, 0.78, 0.55, 0.24 + draw_ratio * 0.12))
+
+	for i in range(2):
+		var side_sign := -1.0 if i == 0 else 1.0
+		var phase := step * side_sign
+		var planted := left_planted if i == 0 else right_planted
+		var plant_power := maxf(1.0 if planted else 0.35, dash_ratio * 0.95)
+		var hip := hip_center + side * hip_half * side_sign
+		var dash_stretch := dash_ratio * 14.0 * side_sign
+		var knee := hip + facing * (10.0 + stride * side_sign * 0.24 - plant_power * 2.0 + dash_stretch * 0.22) + side * side_sign * (2.0 + (1.0 - plant_power) * 3.0)
+		var boot := Vector2(0.0, boot_y + lift * (1.0 if phase > 0.0 else 0.35) - plant_power * movement_ratio * 2.0) + side * (hip_half * side_sign + stride * side_sign * (0.72 + plant_power * 0.28)) + facing * dash_stretch
+		draw_line(hip, knee, denim.darkened(0.22), 4.8)
+		draw_line(knee, boot, leather, 5.2)
+		draw_line(boot - side * side_sign * 2.0, boot + side * side_sign * 8.0 + facing * 3.0, Color(0.012, 0.008, 0.006, 0.74), 4.0)
+		if movement_ratio > 0.08:
+			draw_set_transform(boot + facing * 2.0, facing.angle(), Vector2(8.0 + plant_power * 8.0, 2.0 + plant_power * 1.6))
+			draw_circle(Vector2.ZERO, 1.0, Color(0.025, 0.012, 0.006, 0.16 + plant_power * movement_ratio * 0.2))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if movement_ratio > 0.12:
+			draw_line(boot - facing * 3.0, boot - facing * (10.0 + absf(stride) * 0.3), Color(0.76, 0.45, 0.18, 0.16 + movement_ratio * 0.16), 2.0)
+
+	var left_shoulder := shoulder_center - side * shoulder_half
+	var right_shoulder := shoulder_center + side * shoulder_half
+	var arm_swing := step * lerpf(1.5, 10.0, movement_ratio) + (reach_power - 0.5) * movement_ratio * 3.0
+	var off_hand := left_shoulder + side * (-5.0 - arm_swing * 0.35) + facing * (12.0 - arm_swing * 0.25)
+	var weapon_hand := right_shoulder + side * (4.0 + arm_swing * 0.25) + facing * (8.0 + weapon_hold * 20.0)
+	if weapon_pose_ratio > 0.0:
+		off_hand += facing * (5.0 + weapon_hold * 4.0) + side * (4.0 - recovery_ratio * 6.0)
+		weapon_hand += -side * (9.0 + draw_hold * 7.0 - recovery_ratio * 8.0) + facing * (4.0 + weapon_hold * 3.0 - recovery_ratio * 7.0)
+	draw_line(left_shoulder, off_hand, Color(0.12, 0.07, 0.04, 0.46), 5.0)
+	draw_line(left_shoulder + facing * 2.0, off_hand, bone, 2.0)
+	draw_line(right_shoulder, weapon_hand, Color(0.11, 0.055, 0.03, 0.58 + draw_ratio * 0.2), 5.4)
+	draw_line(right_shoulder + facing * 3.0, weapon_hand, brass, 2.0)
+	draw_circle(weapon_hand, 2.4 + draw_ratio * 1.4, brass)
+
+	var holster := hip_center + facing * 9.0 + side * shoulder_half * 0.82
+	var saber_tip := weapon_hand + facing * (34.0 + weapon_hold * 34.0 - recovery_ratio * 18.0) - side * (8.0 + draw_hold * 8.0 - recovery_ratio * 14.0)
+	if weapon_pose_ratio > 0.0:
+		var guard_hand := weapon_hand - facing * (7.0 + draw_hold * 2.0) + side * (4.0 - recovery_ratio * 6.0)
+		draw_line(off_hand, guard_hand, Color(0.11, 0.055, 0.028, 0.42 + weapon_hold * 0.14), 4.0)
+		draw_line(off_hand + facing * 1.5, guard_hand, bone, 1.6)
+		draw_circle(guard_hand, 2.0 + weapon_hold * 0.8, brass)
+		draw_line(weapon_hand - side * 7.0, weapon_hand + side * 7.0, brass, 2.4)
+		draw_arc(weapon_hand - facing * 2.0, 7.5, facing.angle() - 1.4, facing.angle() + 1.4, 10, Color(0.98, 0.72, 0.28, 0.32 + weapon_hold * 0.2), 1.8)
+		draw_line(weapon_hand + Vector2(2.0, 3.0), saber_tip + Vector2(2.0, 3.0), Color(0.035, 0.018, 0.008, 0.34), 6.0)
+		draw_line(weapon_hand, saber_tip, Color(0.96, 0.9, 0.68, 0.86), 3.0)
+		draw_line(weapon_hand + facing * 8.0, saber_tip, Color(1.0, 0.96, 0.78, 0.62), 1.2)
+		draw_arc(Vector2.ZERO, 42.0 + weapon_hold * 20.0, facing.angle() - 0.7, facing.angle() + 0.7, 18, Color(1.0, 0.86, 0.46, 0.18 + weapon_hold * 0.3), 2.4)
+		draw_line(right_shoulder - side * 3.0, weapon_hand + side * 2.0, Color(1.0, 0.76, 0.32, 0.18 + weapon_hold * 0.18), 2.0)
+		if recovery_ratio > 0.0:
+			draw_line(saber_tip, saber_tip - facing * 20.0 - side * 7.0, Color(1.0, 0.9, 0.58, 0.16 + recovery_ratio * 0.2), 2.0)
+	else:
+		draw_line(holster, holster + facing * 20.0 - side * 8.0, Color(0.07, 0.035, 0.018, 0.54), 4.0)
+		draw_line(holster + facing * 4.0, holster + facing * 22.0 - side * 8.0, brass, 1.2)
 
 func _draw_character_shadow(fallback_size: Vector2) -> void:
 	var visual_size := _get_largest_character_sprite_size(fallback_size)

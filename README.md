@@ -9,6 +9,8 @@ A Godot 4 western arena survival prototype. The current build is a fast, lethal 
 - Wave-based survival with knife rushers, riflemen, shotgun brutes, and duelist minibosses
 - Duelist intro cards with wind and leaf motion
 - Western skill set: Deadeye, Ricochet Shot, Dust Veil, and Quickdraw
+- Permanent upgrade system with 15 purchasable character benefits
+- Upgrade tokens earned from completed quests and rival duelist boss defeats
 - Dust Heist information menu for controls, weapons, enemies, and run goals
 - Persistent blood stains and grounded dust/weapon effects
 - Local JSON save for credits and run count
@@ -32,6 +34,38 @@ You can validate the project from the terminal with:
 
 ```bash
 .tools/godot/Godot_v4.6.2-stable_win64_console.exe --headless --path . --quit
+```
+
+## Supabase
+
+This project is pinned to Aimbotic's Supabase project `uotzmpttpekpkcjxurjj` at `https://uotzmpttpekpkcjxurjj.supabase.co`.
+
+Copy `.env.example` for local environment values. The Godot autoload `SupabaseConfig` only enables Supabase when `SUPABASE_URL` exactly matches the pinned Aimbotic project URL. The Trusted Bums project ref `vaoqvtxqvbptyxddpoju` is explicitly blocked and must not be used.
+
+See `docs/supabase.md` for the project pin and connection guard contract.
+
+## Performance Tools
+
+Run the game with a live overlay and one-second perf logs:
+
+```bash
+.tools/godot/godot --log-file /tmp/dust-heist-live-perf.log --path . -- --dust-perf-overlay --dust-perf-log
+```
+
+Press F3 while playing to toggle the overlay.
+
+Run with memory snapshots around menu load/release and once per second:
+
+```bash
+.tools/godot/godot --log-file /tmp/dust-heist-memory.log --path . -- --dust-memory-log
+```
+
+Repeatable perf checks:
+
+```bash
+.tools/godot/godot --headless --log-file /tmp/dust-heist-menu-perf.log --path . -- --dust-menu-performance-test
+.tools/godot/godot --headless --log-file /tmp/dust-heist-combat-perf.log --path . -- --dust-performance-test
+.tools/godot/godot --headless --log-file /tmp/dust-heist-heavy-perf.log --path . -- --dust-heavy-combat-performance-test
 ```
 
 ## Play From GitHub Pages

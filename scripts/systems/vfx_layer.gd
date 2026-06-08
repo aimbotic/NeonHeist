@@ -175,6 +175,28 @@ func _has_active_transient_effects() -> bool:
 		and _ability_cast_glints.is_empty()
 	)
 
+func get_active_effect_count() -> int:
+	return (
+		_pulses.size()
+		+ _beams.size()
+		+ _impact_texts.size()
+		+ _muzzle_flashes.size()
+		+ _enemy_hit_sparks.size()
+		+ _parry_clangs.size()
+		+ _player_hit_flashes.size()
+		+ _saber_afterimages.size()
+		+ _rusher_defeat_bursts.size()
+		+ _dash_ready_glints.size()
+		+ _dash_ready_prompts.size()
+		+ _rifle_warning_puffs.size()
+		+ _enemy_weapon_bursts.size()
+		+ _enemy_movement_dust.size()
+		+ _extraction_rideouts.size()
+		+ _reload_ready_glints.size()
+		+ _empty_reload_spins.size()
+		+ _ability_cast_glints.size()
+	)
+
 func _draw() -> void:
 	for stain in _blood_stains:
 		var origin: Vector2 = stain["origin"]
@@ -775,6 +797,27 @@ func get_blood_stain_material_marker_count() -> int:
 
 func clear_blood_stains() -> void:
 	_blood_stains.clear()
+	_request_transient_redraw(true)
+
+func clear_transient_effects() -> void:
+	_pulses.clear()
+	_beams.clear()
+	_impact_texts.clear()
+	_muzzle_flashes.clear()
+	_enemy_hit_sparks.clear()
+	_parry_clangs.clear()
+	_player_hit_flashes.clear()
+	_saber_afterimages.clear()
+	_rusher_defeat_bursts.clear()
+	_dash_ready_glints.clear()
+	_dash_ready_prompts.clear()
+	_rifle_warning_puffs.clear()
+	_enemy_weapon_bursts.clear()
+	_enemy_movement_dust.clear()
+	_extraction_rideouts.clear()
+	_reload_ready_glints.clear()
+	_empty_reload_spins.clear()
+	_ability_cast_glints.clear()
 	_request_transient_redraw(true)
 
 func shockwave(origin: Vector2, color: Color) -> void:

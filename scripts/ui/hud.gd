@@ -4,6 +4,7 @@ extends CanvasLayer
 signal play_requested
 signal ability_loadout_changed(equipped_ids: Array[String])
 signal gun_loadout_changed(gun_id: String)
+signal upgrade_purchase_requested(upgrade_id: String)
 
 const LOADOUT_CARD_VISUAL_VERSION := "loadout_card_claim_ticket_depth_hardware_redraw_gate_v8"
 const INFO_CARD_VISUAL_VERSION := "info_card_weathered_ledger_v3"
@@ -11,7 +12,9 @@ const QUEST_CARD_VISUAL_VERSION := "quest_card_bounty_stamp_v2"
 const RESULT_CARD_VISUAL_VERSION := "result_card_side_receipt_detached_popout_light_wash_v6"
 const UNLOCK_TOAST_VISUAL_VERSION := "unlock_toast_brass_claim_ticket_v1"
 const MENU_NAV_BUTTON_VISUAL_VERSION := "menu_nav_bounty_receipt_badge_press_hardware_v10"
-const MENU_BACKDROP_VISUAL_VERSION := "menu_backdrop_showdown_street_life_depth_v6"
+const MENU_BACKDROP_VISUAL_VERSION := "menu_backdrop_static_low_batch_v1"
+const MAIN_MENU_MEMORY_MODE_VERSION := "main_menu_release_on_gameplay_v1"
+const MAIN_MENU_MEMORY_LOG_VERSION := "main_menu_memory_release_probe_v1"
 const MENU_RESPONSIVE_LAYOUT_VERSION := "menu_responsive_loadout_spacing_v1"
 const DUELIST_INTRO_VISUAL_VERSION := "duelist_intro_wanted_poster_v1"
 const LIVE_HUD_LEDGER_VISUAL_VERSION := "live_hud_ledger_marshal_badge_label_gate_v3"
@@ -856,9 +859,9 @@ class MenuNavButton extends Button:
 				draw_circle(center, 6.0, color)
 
 class MenuBackdrop extends Control:
-	const VISUAL_VERSION := "menu_backdrop_showdown_street_life_depth_v6"
-	const TOWN_SQUARE_CUE_COUNT := 74
-	const TITLE_PLAQUE_MARKER_COUNT := 28
+	const VISUAL_VERSION := "menu_backdrop_static_low_batch_v1"
+	const TOWN_SQUARE_CUE_COUNT := 32
+	const TITLE_PLAQUE_MARKER_COUNT := 14
 
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_RESIZED:
@@ -883,36 +886,66 @@ class MenuBackdrop extends Control:
 		draw_rect(Rect2(Vector2(0.0, 0.0), Vector2(size.x, horizon_y)), Color(0.18, 0.075, 0.03, 0.82), true)
 		draw_rect(Rect2(Vector2(0.0, horizon_y), Vector2(size.x, size.y - horizon_y)), Color(0.08, 0.034, 0.018, 0.96), true)
 
-		for i in range(9):
+		for i in range(4):
 			var t := float(i) / 8.0
 			var y := horizon_y * t
 			draw_rect(Rect2(Vector2(0.0, y), Vector2(size.x, horizon_y / 8.0 + 1.0)), Color(0.62, 0.31, 0.11, 0.06 + t * 0.035), true)
 
 		var sun_center := Vector2(size.x * 0.5, size.y * 0.18)
-		for ring in range(6):
-			draw_circle(sun_center, 130.0 - ring * 18.0, Color(1.0, 0.58, 0.16, 0.018))
-		for ray in range(12):
-			var angle := -PI * 0.92 + float(ray) * PI * 1.84 / 11.0
+		for ring in range(3):
+			draw_circle(sun_center, 126.0 - ring * 32.0, Color(1.0, 0.58, 0.16, 0.02))
+		for ray in range(5):
+			var angle := -PI * 0.86 + float(ray) * PI * 1.72 / 4.0
 			var end_point := sun_center + Vector2(cos(angle), sin(angle)) * maxf(size.x, size.y)
-			draw_line(sun_center, end_point, Color(1.0, 0.62, 0.2, 0.045), 26.0)
-		for shaft in range(5):
-			var x := size.x * (0.12 + float(shaft) * 0.19)
-			var shaft_start := Vector2(x, horizon_y * 0.18 + float(shaft % 2) * 18.0)
-			var shaft_end := Vector2(x + 120.0 + float(shaft) * 24.0, size.y - 86.0)
-			draw_line(shaft_start, shaft_end, Color(1.0, 0.68, 0.25, 0.028), 34.0)
-			draw_line(shaft_start + Vector2(18.0, 8.0), shaft_end + Vector2(24.0, -10.0), Color(1.0, 0.84, 0.42, 0.018), 14.0)
+			draw_line(sun_center, end_point, Color(1.0, 0.62, 0.2, 0.04), 22.0)
 
-		_draw_menu_town_square_silhouette(horizon_y)
-		_draw_menu_street_depth_dressing(horizon_y)
-		_draw_menu_showdown_foreground_cues(horizon_y)
-		_draw_menu_street_life_cues(horizon_y)
+		var street_y := horizon_y - 12.0
+		var building_width := maxf(120.0, size.x / 5.6)
+		for i in range(6):
+			var x := float(i) * building_width - building_width * 0.22
+			var height := 78.0 + float((i * 29) % 42)
+			var front := Rect2(Vector2(x, street_y - height), Vector2(building_width * 0.88, height))
+			var roof := Rect2(front.position - Vector2(4.0, 14.0), Vector2(front.size.x + 8.0, 18.0))
+			draw_rect(Rect2(front.position + Vector2(8.0, 10.0), front.size), Color(0.0, 0.0, 0.0, 0.22), true)
+			draw_rect(front, Color(0.07, 0.028, 0.014, 0.88), true)
+			draw_rect(front.grow(-5.0), Color(0.18, 0.076, 0.034, 0.82), true)
+			draw_rect(roof, Color(0.035, 0.014, 0.007, 0.86), true)
+			draw_line(roof.position + Vector2(10.0, 5.0), roof.end - Vector2(10.0, 12.0), Color(0.9, 0.48, 0.15, 0.24), 2.0)
+			var sign := Rect2(front.position + Vector2(14.0, 18.0), Vector2(maxf(42.0, front.size.x - 28.0), 16.0))
+			draw_rect(sign, Color(0.09, 0.034, 0.014, 0.78), true)
+			draw_rect(sign, Color(0.94, 0.52, 0.16, 0.26), false, 1.2)
+			var window_y := front.position.y + 47.0
+			for w in range(2):
+				var window := Rect2(Vector2(front.position.x + 18.0 + float(w) * maxf(34.0, front.size.x * 0.46), window_y), Vector2(18.0, 24.0))
+				draw_rect(window, Color(0.04, 0.018, 0.01, 0.84), true)
+				draw_rect(window.grow(-3.0), Color(0.96, 0.62, 0.22, 0.19), true)
+			if i % 3 == 0:
+				draw_circle(front.get_center() + Vector2(0.0, -9.0), 8.0, Color(0.96, 0.58, 0.18, 0.22))
+			elif i % 3 == 1:
+				draw_line(Vector2(front.end.x - 18.0, front.position.y + 42.0), Vector2(front.end.x - 18.0, street_y - 8.0), Color(0.95, 0.8, 0.62, 0.34), 3.0)
+			else:
+				draw_rect(Rect2(Vector2(front.position.x + 20.0, street_y - 22.0), Vector2(36.0, 15.0)), Color(0.12, 0.05, 0.02, 0.58), true)
+		draw_line(Vector2(0.0, street_y + 4.0), Vector2(size.x, street_y + 2.0), Color(0.98, 0.58, 0.18, 0.2), 4.0)
+		draw_line(Vector2(0.0, street_y + 14.0), Vector2(size.x, street_y + 12.0), Color(0.0, 0.0, 0.0, 0.26), 3.0)
+
+		var street_bottom := size.y - 124.0
+		for lane in range(3):
+			var t := float(lane) / 2.0
+			var y := lerpf(street_y + 36.0, street_bottom - 18.0, t)
+			draw_line(Vector2(size.x * 0.12, y), Vector2(size.x * 0.88, y + sin(float(lane)) * 14.0), Color(0.018, 0.008, 0.004, 0.2), 7.0)
+			draw_line(Vector2(size.x * 0.14, y - 4.0), Vector2(size.x * 0.86, y + sin(float(lane)) * 14.0 - 4.0), Color(0.92, 0.58, 0.22, 0.08), 2.0)
+		for post in range(5):
+			var x := 30.0 + float(post) * maxf(108.0, size.x / 4.6)
+			draw_line(Vector2(x, street_y - 10.0), Vector2(x, street_y + 38.0), Color(0.05, 0.02, 0.01, 0.72), 4.0)
+			draw_circle(Vector2(x + 14.0, street_y - 20.0), 12.0, Color(1.0, 0.5, 0.12, 0.04))
+			draw_circle(Vector2(x + 14.0, street_y - 20.0), 4.0, Color(1.0, 0.68, 0.22, 0.28))
 
 		var board_y := size.y - 132.0
-		for plank in range(8):
-			var y := board_y + plank * 18.0
+		for plank in range(5):
+			var y := board_y + plank * 24.0
 			draw_rect(Rect2(Vector2(0.0, y), Vector2(size.x, 15.0)), Color(0.12 + float(plank % 2) * 0.018, 0.056, 0.026, 0.88), true)
 			draw_line(Vector2(0.0, y + 2.0), Vector2(size.x, y + 1.0), Color(0.86, 0.48, 0.2, 0.13), 2.0)
-			draw_line(Vector2(0.0, y + 16.0), Vector2(size.x, y + 17.0), Color(0.018, 0.009, 0.005, 0.28), 2.0)
+			draw_line(Vector2(0.0, y + 16.0), Vector2(size.x, y + 17.0), Color(0.018, 0.009, 0.005, 0.22), 2.0)
 
 		var sign_rect := Rect2(Vector2(size.x * 0.5 - 315.0, 38.0), Vector2(630.0, 112.0))
 		draw_rect(Rect2(sign_rect.position + Vector2(10.0, 12.0), sign_rect.size), Color(0.012, 0.006, 0.003, 0.42), true)
@@ -921,17 +954,18 @@ class MenuBackdrop extends Control:
 		draw_line(sign_rect.position + Vector2(32.0, sign_rect.size.y - 20.0), sign_rect.end - Vector2(32.0, 20.0), Color(1.0, 0.68, 0.24, 0.26), 3.0)
 		_draw_title_hanging_sign_details(sign_rect)
 
-		for i in range(50):
+		for i in range(16):
 			var x := float((i * 97) % int(maxf(size.x, 2.0)))
 			var y := float((i * 53) % int(maxf(size.y, 2.0)))
 			var radius := 1.0 + float(i % 3)
 			draw_circle(Vector2(x, y), radius, Color(0.94, 0.62, 0.28, 0.07))
 
 		var edge_color := Color(0.0, 0.0, 0.0, 0.16)
-		for edge in range(8):
+		for edge in range(4):
 			var alpha := 0.018 + float(edge) * 0.018
 			edge_color.a = alpha
 			draw_rect(Rect2(Vector2(edge * 6.0, edge * 5.0), size - Vector2(edge * 12.0, edge * 10.0)), edge_color, false, 10.0)
+		return
 
 	func _draw_title_hanging_sign_details(sign_rect: Rect2) -> void:
 		var brass := Color(1.0, 0.66, 0.22, 0.44)
@@ -1978,13 +2012,21 @@ var _guns_grid := GridContainer.new()
 var _abilities_panel := VBoxContainer.new()
 var _abilities_grid := GridContainer.new()
 var _quests_panel := VBoxContainer.new()
+var _upgrades_panel := VBoxContainer.new()
+var _upgrades_scroll := ScrollContainer.new()
+var _upgrades_grid := GridContainer.new()
 var _gun_buttons: Dictionary = {}
 var _ability_buttons: Dictionary = {}
+var _upgrade_buttons: Dictionary = {}
 var _gun_icons: Dictionary = {}
 var _ability_icons: Dictionary = {}
 var _quest_labels: Dictionary = {}
 var _quest_cards: Array[QuestCard] = []
+var _upgrade_data: Array[Dictionary] = []
+var _upgrade_tokens := 0
 var _menu_buttons: Array[Button] = []
+var _menu_loaded := false
+var _menu_memory_log_enabled := false
 var _active_menu_button_id := ""
 var _last_menu_content_width := 0.0
 var _last_menu_nav_width := 0.0
@@ -2004,6 +2046,7 @@ const INFORMATION_CARDS := [
 	{"title": "Duelist", "category": "BOSS", "body": "Appears every third wave with a wanted-card intro and a dangerous lunge pattern.", "footer": "Boss wave", "accent": Color(0.72, 0.08, 0.04)},
 	{"title": "Read The Tells", "category": "SKILL", "body": "Boot dust means a duelist dash is loading. Shell smoke means a brute just fired and is open.", "footer": "Watch feet and smoke", "accent": Color(0.86, 0.58, 0.28)},
 	{"title": "Style Ranks", "category": "STYLE", "body": "C 2600, B 5200, A 8500, S 12500. Keep chains alive, hit LAST SECOND, and earn mastery rewards for final grade.", "footer": "Chain + mastery", "accent": Color(1.0, 0.72, 0.24)},
+	{"title": "Upgrade Tokens", "category": "PROGRESS", "body": "Quests and rival boss defeats pay tokens. Spend them in Upgrades for permanent hearts, speed, blades, guns, abilities, and rewards.", "footer": "Permanent power", "accent": Color(0.58, 0.72, 0.34)},
 	{"title": "Reverend Ash", "category": "SET-PIECE", "body": "Dust Chapel's judge sends brutes down dark aisles. Cross the brass chevrons, do not retreat with them.", "footer": "Wave 5 lanes", "accent": Color(0.58, 0.16, 0.08)},
 	{"title": "Gold Rush", "category": "STYLE", "body": "Brass rails link paired powder kegs. Slash or shoot one, bait outlaws into the lane, and chain pairs for POWDER KEG style.", "footer": "Wave 8 mastery", "accent": Color(1.0, 0.64, 0.18)},
 	{"title": "Red Canyon", "category": "STYLE", "body": "Calm pockets cut through the sandstorm. Hold one as a Hunter lunges to earn CANYON POCKET style.", "footer": "Wave 7 mastery", "accent": Color(0.78, 0.52, 0.18)},
@@ -2753,6 +2796,19 @@ func get_quest_card_visual_version() -> String:
 func get_quest_card_count() -> int:
 	return _quest_cards.size()
 
+func get_upgrade_card_count() -> int:
+	return _upgrade_data.size()
+
+func get_upgrade_token_count() -> int:
+	return _upgrade_tokens
+
+func get_owned_upgrade_count() -> int:
+	var count := 0
+	for upgrade in _upgrade_data:
+		if bool(upgrade.get("owned", false)):
+			count += 1
+	return count
+
 func get_main_menu_button_style_count() -> int:
 	var styled_count := 0
 	for button in _menu_buttons:
@@ -2797,6 +2853,15 @@ func get_main_menu_backdrop_visual_version() -> String:
 	if _menu_backdrop != null and is_instance_valid(_menu_backdrop) and _menu_backdrop.has_method("get_visual_version"):
 		return str(_menu_backdrop.get_visual_version())
 	return ""
+
+func get_main_menu_memory_mode_version() -> String:
+	return MAIN_MENU_MEMORY_MODE_VERSION
+
+func get_main_menu_memory_log_version() -> String:
+	return MAIN_MENU_MEMORY_LOG_VERSION
+
+func get_main_menu_loaded() -> bool:
+	return _menu_loaded and _menu_root != null and is_instance_valid(_menu_root) and _menu_root.is_inside_tree()
 
 func get_main_menu_town_square_cue_count() -> int:
 	if _menu_backdrop != null and is_instance_valid(_menu_backdrop) and _menu_backdrop.has_method("get_town_square_cue_count"):
@@ -3251,6 +3316,138 @@ func _layout_message_label_default() -> void:
 	_message_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_message_label.add_theme_color_override("font_color", Color(0.86, 0.62, 0.36))
 
+func _reset_menu_node_references() -> void:
+	_menu_root = Control.new()
+	_menu_backdrop = MenuBackdrop.new()
+	_menu_title = Label.new()
+	_menu_panel = VBoxContainer.new()
+	_menu_content = HBoxContainer.new()
+	_cards_scroll = ScrollContainer.new()
+	_cards_grid = GridContainer.new()
+	_guns_panel = VBoxContainer.new()
+	_guns_grid = GridContainer.new()
+	_abilities_panel = VBoxContainer.new()
+	_abilities_grid = GridContainer.new()
+	_quests_panel = VBoxContainer.new()
+	_upgrades_panel = VBoxContainer.new()
+	_upgrades_scroll = ScrollContainer.new()
+	_upgrades_grid = GridContainer.new()
+	_gun_buttons.clear()
+	_ability_buttons.clear()
+	_upgrade_buttons.clear()
+	_gun_icons.clear()
+	_ability_icons.clear()
+	_quest_labels.clear()
+	_quest_cards.clear()
+	_menu_buttons.clear()
+	_active_menu_button_id = ""
+
+func _clear_menu_node_references() -> void:
+	_menu_root = null
+	_menu_backdrop = null
+	_menu_title = null
+	_menu_panel = null
+	_menu_content = null
+	_cards_scroll = null
+	_cards_grid = null
+	_guns_panel = null
+	_guns_grid = null
+	_abilities_panel = null
+	_abilities_grid = null
+	_quests_panel = null
+	_upgrades_panel = null
+	_upgrades_scroll = null
+	_upgrades_grid = null
+	_gun_buttons.clear()
+	_ability_buttons.clear()
+	_upgrade_buttons.clear()
+	_gun_icons.clear()
+	_ability_icons.clear()
+	_quest_labels.clear()
+	_quest_cards.clear()
+	_menu_buttons.clear()
+	_active_menu_button_id = ""
+
+func set_main_menu_memory_log_enabled(enabled: bool) -> void:
+	_menu_memory_log_enabled = enabled
+
+func _count_node_tree(node: Node) -> int:
+	if node == null or not is_instance_valid(node):
+		return 0
+	var count := 1
+	for child in node.get_children():
+		count += _count_node_tree(child)
+	return count
+
+func _get_menu_node_count() -> int:
+	if not get_main_menu_loaded():
+		return 0
+	return _count_node_tree(_menu_root)
+
+func _bytes_to_mb(value: float) -> float:
+	return value / 1048576.0
+
+func _format_main_menu_memory_snapshot(label: String) -> String:
+	var static_mb := _bytes_to_mb(float(Performance.get_monitor(Performance.MEMORY_STATIC)))
+	var static_max_mb := _bytes_to_mb(float(Performance.get_monitor(Performance.MEMORY_STATIC_MAX)))
+	var texture_mb := _bytes_to_mb(float(Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED)))
+	var buffer_mb := _bytes_to_mb(float(Performance.get_monitor(Performance.RENDER_BUFFER_MEM_USED)))
+	var video_mb := _bytes_to_mb(float(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED)))
+	var object_count := int(Performance.get_monitor(Performance.OBJECT_COUNT))
+	var resource_count := int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT))
+	var node_count := int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
+	var orphan_node_count := int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT))
+	return (
+		"label=%s version=%s menu_loaded=%s menu_visible=%s menu_nodes=%d nav_buttons=%d gun_buttons=%d ability_buttons=%d quest_cards=%d "
+		+ "objects=%d resources=%d nodes=%d orphan_nodes=%d static_mb=%.1f static_max_mb=%.1f texture_mb=%.1f buffer_mb=%.1f video_mb=%.1f"
+	) % [
+		label,
+		MAIN_MENU_MEMORY_LOG_VERSION,
+		str(get_main_menu_loaded()),
+		str(_menu_root != null and is_instance_valid(_menu_root) and _menu_root.visible),
+		_get_menu_node_count(),
+		_menu_buttons.size(),
+		_gun_buttons.size(),
+		_ability_buttons.size(),
+		_quest_cards.size(),
+		object_count,
+		resource_count,
+		node_count,
+		orphan_node_count,
+		static_mb,
+		static_max_mb,
+		texture_mb,
+		buffer_mb,
+		video_mb,
+	]
+
+func _print_main_menu_memory_snapshot(label: String) -> void:
+	if not _menu_memory_log_enabled:
+		return
+	print("DUST_MEMORY_LOG: %s" % _format_main_menu_memory_snapshot(label))
+
+func _ensure_menu_loaded() -> void:
+	if get_main_menu_loaded():
+		return
+	if _menu_root != null and is_instance_valid(_menu_root):
+		_menu_root.queue_free()
+	_reset_menu_node_references()
+	_create_menu()
+
+func _release_main_menu() -> void:
+	if not _menu_loaded:
+		return
+	if _menu_root != null and is_instance_valid(_menu_root) and _menu_root.visible:
+		return
+	_print_main_menu_memory_snapshot("menu_release_before")
+	if _menu_root != null and is_instance_valid(_menu_root):
+		if _menu_root.get_parent() == _root:
+			_root.remove_child(_menu_root)
+		_menu_root.free()
+	_clear_menu_node_references()
+	_menu_loaded = false
+	_print_main_menu_memory_snapshot("menu_release_after")
+
 func _layout_unlock_toast() -> void:
 	var viewport_size := get_viewport().get_visible_rect().size
 	var toast_width: float = minf(620.0, maxf(320.0, viewport_size.x - 80.0))
@@ -3336,6 +3533,7 @@ func show_run_failed(grade_text: String = "") -> void:
 	_death_label.move_to_front()
 
 func show_main_menu() -> void:
+	_ensure_menu_loaded()
 	_clear_result_overlay()
 	_menu_root.visible = true
 	_menu_root.move_to_front()
@@ -3346,6 +3544,7 @@ func show_main_menu() -> void:
 	_layout_menu()
 	_show_overview_cards()
 	_set_active_menu_button("")
+	_print_main_menu_memory_snapshot("menu_show_loaded")
 
 func show_information_menu_for_qa() -> void:
 	show_main_menu()
@@ -3373,8 +3572,12 @@ func set_quest_data(quests: Array[Dictionary]) -> void:
 	_refresh_quest_panel()
 
 func hide_main_menu() -> void:
-	_menu_root.visible = false
+	if get_main_menu_loaded():
+		_print_main_menu_memory_snapshot("menu_hide_before")
+		_menu_root.visible = false
+		_print_main_menu_memory_snapshot("menu_hide_hidden")
 	_set_gameplay_hud_visible(true)
+	call_deferred("_release_main_menu")
 
 func show_wave_banner(wave: int, level_title: String = "", max_wave: int = 0) -> void:
 	if _wave_banner_tween != null and is_instance_valid(_wave_banner_tween):
@@ -3607,6 +3810,8 @@ func _configure_label(label: Label, position: Vector2, font_size: int) -> void:
 	_root.add_child(label)
 
 func _create_menu() -> void:
+	if get_main_menu_loaded():
+		return
 	_menu_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_menu_root.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.add_child(_menu_root)
@@ -3651,6 +3856,9 @@ func _create_menu() -> void:
 	_add_menu_button("ABILITIES", func() -> void:
 		_show_abilities_screen()
 	)
+	_add_menu_button("UPGRADES", func() -> void:
+		_show_upgrades_screen()
+	)
 	_add_menu_button("QUESTS", func() -> void:
 		_show_quests_screen()
 	)
@@ -3669,7 +3877,9 @@ func _create_menu() -> void:
 	_cards_scroll.add_child(_cards_grid)
 	_create_guns_panel()
 	_create_abilities_panel()
+	_create_upgrades_panel()
 	_create_quests_panel()
+	_menu_loaded = true
 
 func _add_menu_button(text: String, callback: Callable) -> void:
 	var button := MenuNavButton.new()
@@ -4029,6 +4239,7 @@ func _show_card_grid(cards: Array) -> void:
 	_guns_panel.visible = false
 	_abilities_panel.visible = false
 	_quests_panel.visible = false
+	_upgrades_panel.visible = false
 	_cards_scroll.visible = true
 	for child in _cards_grid.get_children():
 		_cards_grid.remove_child(child)
@@ -4046,10 +4257,8 @@ func _show_card_grid(cards: Array) -> void:
 
 func _show_overview_cards() -> void:
 	_show_card_grid([
-		{"title": "Dust Heist", "category": "RUN", "body": "Survive the courthouse ambush, clear outlaw waves, and earn credits before the dust buries you.", "footer": "Goal: stay alive", "accent": Color(0.78, 0.42, 0.18)},
-		{"title": "Courtyard", "category": "MAP", "body": "Fight inside a sandy old-west arena ringed by storefronts, cover shadows, and incoming enemies.", "footer": "Stay moving", "accent": Color(0.58, 0.32, 0.14)},
-		{"title": "One Hit", "category": "RULE", "body": "Health is precious. Dashes, parries, Dust Veil, and clean spacing decide whether a run survives.", "footer": "Mistakes hurt", "accent": Color(0.72, 0.08, 0.04)},
-		{"title": "Credits", "category": "SAVE", "body": "Defeated enemies and cleared waves pay credits after a run ends. Quest progress is saved locally.", "footer": "Progress persists", "accent": Color(0.95, 0.68, 0.24)},
+		{"title": "Dust Heist", "category": "RUN", "body": "Survive the courthouse ambush, clear outlaw waves, and bank credits after the dust settles.", "footer": "Goal: stay alive", "accent": Color(0.78, 0.42, 0.18)},
+		{"title": "Courtyard", "category": "RULES", "body": "Fight through a sandy western arena where movement, parries, Dust Veil, and clean spacing decide each run.", "footer": "Progress persists", "accent": Color(0.95, 0.68, 0.24)},
 	])
 
 func _show_sword_cards() -> void:
@@ -4069,6 +4278,7 @@ func _show_guns_screen() -> void:
 	_cards_scroll.visible = false
 	_abilities_panel.visible = false
 	_quests_panel.visible = false
+	_upgrades_panel.visible = false
 	_guns_panel.visible = true
 	_refresh_gun_buttons()
 
@@ -4081,6 +4291,7 @@ func _show_abilities_screen() -> void:
 	_cards_scroll.visible = false
 	_guns_panel.visible = false
 	_quests_panel.visible = false
+	_upgrades_panel.visible = false
 	_abilities_panel.visible = true
 	_refresh_ability_buttons()
 
@@ -4165,6 +4376,135 @@ func _refresh_ability_buttons() -> void:
 		button.disabled = false
 		_apply_button_card_style(button, Color(0.86, 0.58, 0.28), not unlocked, equipped_index >= 0)
 
+func _create_upgrades_panel() -> void:
+	_upgrades_panel.visible = false
+	_upgrades_panel.custom_minimum_size = Vector2(520, 360)
+	_upgrades_panel.add_theme_constant_override("separation", 10)
+	_menu_content.add_child(_upgrades_panel)
+
+	var title := Label.new()
+	title.text = "PERMANENT UPGRADES"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.custom_minimum_size = Vector2(534, 30)
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(1.0, 0.78, 0.36))
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_upgrades_panel.add_child(title)
+	_upgrade_buttons["title"] = title
+
+	var token_label := Label.new()
+	token_label.text = "TOKENS 0"
+	token_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	token_label.custom_minimum_size = Vector2(534, 24)
+	token_label.add_theme_font_size_override("font_size", 18)
+	token_label.add_theme_color_override("font_color", Color(0.96, 0.86, 0.58))
+	token_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_upgrades_panel.add_child(token_label)
+	_upgrade_buttons["tokens"] = token_label
+
+	_upgrades_scroll.custom_minimum_size = Vector2(520, 300)
+	_upgrades_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_upgrades_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_upgrades_panel.add_child(_upgrades_scroll)
+
+	_upgrades_grid.columns = 2
+	_upgrades_grid.add_theme_constant_override("h_separation", 12)
+	_upgrades_grid.add_theme_constant_override("v_separation", 12)
+	_upgrades_scroll.add_child(_upgrades_grid)
+	_refresh_upgrade_panel()
+
+func _show_upgrades_screen() -> void:
+	_set_active_menu_button("UPGRADES")
+	_cards_scroll.visible = false
+	_guns_panel.visible = false
+	_abilities_panel.visible = false
+	_quests_panel.visible = false
+	_upgrades_panel.visible = true
+	_refresh_upgrade_panel()
+
+func set_upgrade_data(upgrades: Array[Dictionary], token_count: int) -> void:
+	_upgrade_data = upgrades.duplicate(true)
+	_upgrade_tokens = token_count
+	_refresh_upgrade_panel()
+
+func _refresh_upgrade_panel() -> void:
+	if _upgrades_grid == null or not is_instance_valid(_upgrades_grid):
+		return
+	if _upgrade_buttons.has("tokens"):
+		var token_label: Label = _upgrade_buttons["tokens"]
+		token_label.text = "TOKENS %d  QUESTS AND RIVAL BOSSES PAY THESE OUT" % _upgrade_tokens
+	for child in _upgrades_grid.get_children():
+		_upgrades_grid.remove_child(child)
+		child.queue_free()
+	for upgrade in _upgrade_data:
+		var upgrade_id := str(upgrade.get("id", ""))
+		var owned := bool(upgrade.get("owned", false))
+		var cost := int(upgrade.get("cost", 1))
+		var can_buy := not owned and _upgrade_tokens >= cost
+		var button := LoadoutCardButton.new()
+		button.flat = false
+		button.custom_minimum_size = Vector2(260, 132)
+		button.disabled = owned
+		_apply_button_card_style(button, Color(0.92, 0.62, 0.22), false, owned)
+		button.pressed.connect(func() -> void:
+			upgrade_purchase_requested.emit(upgrade_id)
+		)
+		_upgrades_grid.add_child(button)
+
+		var margin := MarginContainer.new()
+		margin.add_theme_constant_override("margin_left", 12)
+		margin.add_theme_constant_override("margin_top", 8)
+		margin.add_theme_constant_override("margin_right", 12)
+		margin.add_theme_constant_override("margin_bottom", 8)
+		margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(margin)
+
+		var stack := VBoxContainer.new()
+		stack.add_theme_constant_override("separation", 5)
+		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		margin.add_child(stack)
+
+		var name_label := Label.new()
+		name_label.text = str(upgrade.get("name", "UPGRADE")).to_upper()
+		name_label.custom_minimum_size = Vector2(236, 24)
+		name_label.add_theme_font_size_override("font_size", 17)
+		name_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(name_label)
+
+		var category_label := Label.new()
+		category_label.text = "%s  %s" % [str(upgrade.get("category", "PASSIVE")), "OWNED" if owned else ("BUY %d TOKEN%s" % [cost, "" if cost == 1 else "S"])]
+		category_label.custom_minimum_size = Vector2(236, 22)
+		category_label.add_theme_font_size_override("font_size", 13)
+		category_label.add_theme_color_override("font_color", Color(0.24, 0.11, 0.045))
+		category_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(category_label)
+
+		var accent_bar := ColorRect.new()
+		accent_bar.color = Color(0.38, 0.58, 0.18, 0.95) if owned else (Color(0.95, 0.64, 0.18, 0.95) if can_buy else Color(0.48, 0.28, 0.14, 0.82))
+		accent_bar.custom_minimum_size = Vector2(236, 7)
+		accent_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(accent_bar)
+
+		var body_label := Label.new()
+		body_label.text = str(upgrade.get("description", "Permanent character benefit."))
+		body_label.custom_minimum_size = Vector2(236, 44)
+		body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body_label.add_theme_font_size_override("font_size", 14)
+		body_label.add_theme_color_override("font_color", Color(0.08, 0.035, 0.018))
+		body_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(body_label)
+
+		var footer_label := Label.new()
+		footer_label.text = "Permanent" if owned else ("Click to buy" if can_buy else "Earn tokens from quests and bosses")
+		footer_label.custom_minimum_size = Vector2(236, 20)
+		footer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		footer_label.add_theme_font_size_override("font_size", 12)
+		footer_label.add_theme_color_override("font_color", Color(0.24, 0.11, 0.045))
+		footer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(footer_label)
+
 func _create_quests_panel() -> void:
 	_quests_panel.visible = false
 	_quests_panel.custom_minimum_size = Vector2(440, 308)
@@ -4189,6 +4529,7 @@ func _show_quests_screen() -> void:
 	_cards_scroll.visible = false
 	_guns_panel.visible = false
 	_abilities_panel.visible = false
+	_upgrades_panel.visible = false
 	_quests_panel.visible = true
 	_refresh_quest_panel()
 
@@ -4231,10 +4572,13 @@ func _layout_menu() -> void:
 	_guns_panel.custom_minimum_size = Vector2(right_width, content_height)
 	_abilities_panel.custom_minimum_size = Vector2(right_width, content_height)
 	_quests_panel.custom_minimum_size = Vector2(right_width, content_height)
+	_upgrades_panel.custom_minimum_size = Vector2(right_width, content_height)
+	_upgrades_scroll.custom_minimum_size = Vector2(right_width, maxf(220.0, content_height - 64.0))
 	var columns := 1 if right_width < 520.0 else 2
 	_cards_grid.columns = columns
 	_guns_grid.columns = columns
 	_abilities_grid.columns = columns
+	_upgrades_grid.columns = columns
 	var grid_gap := 10 if compact or columns == 1 else 14
 	_cards_grid.add_theme_constant_override("h_separation", grid_gap)
 	_cards_grid.add_theme_constant_override("v_separation", grid_gap)
@@ -4242,6 +4586,8 @@ func _layout_menu() -> void:
 	_guns_grid.add_theme_constant_override("v_separation", grid_gap)
 	_abilities_grid.add_theme_constant_override("h_separation", grid_gap)
 	_abilities_grid.add_theme_constant_override("v_separation", grid_gap)
+	_upgrades_grid.add_theme_constant_override("h_separation", grid_gap)
+	_upgrades_grid.add_theme_constant_override("v_separation", grid_gap)
 	_last_menu_content_width = content_width
 	_last_menu_nav_width = nav_width
 	_last_menu_right_width = right_width

@@ -20,14 +20,25 @@ var _walk_time := 0.0
 var _movement_dust_timer := 0.0
 var _enemy_texture: Texture2D
 var _enemy_direction_textures: Dictionary = {}
+var _enemy_gait_strip_textures: Dictionary = {}
+var _enemy_combat_strip_textures: Dictionary = {}
 var _enemy_sprite_target_height := 104.0
+var _enemy_sprite_slug := ""
 const ENEMY_SILHOUETTE_VISUAL_VERSION := "role_silhouette_badge_plate_readability_v8"
 const ENEMY_MOVEMENT_DUST_INTEGRATION_VERSION := "enemy_movement_boot_dust_v1"
 const ENEMY_HIT_RECOIL_VISUAL_VERSION := "enemy_hit_recoil_shadow_rim_v1"
-const ENEMY_GROUNDED_SPRITE_VISUAL_VERSION := "enemy_directional_safe_crop_motion_redraw_budget_8fps_v10"
+const ENEMY_GROUNDED_SPRITE_VISUAL_VERSION := "enemy_directional_human_motion_weapon_draw_v1"
+const ENEMY_HUMAN_MOTION_VISUAL_VERSION := "enemy_rusher_hunter_gait_weapon_anchor_strip_v21"
+const ENEMY_GAIT_STRIP_VISUAL_VERSION := "enemy_rusher_hunter_legible_gait_strip_v7"
+const ENEMY_COMBAT_STRIP_VISUAL_VERSION := "enemy_gameplay_scaled_anchored_weapon_strip_v5"
+const ENEMY_ANIMATION_STRIP_BUDGET_VERSION := "enemy_animation_strip_texture_budget_v1"
+const ENEMY_ANIMATION_TEXTURE_CACHE_VERSION := "enemy_animation_texture_archetype_cache_v1"
+const ENEMY_STRIP_OVERLAY_MODE_VERSION := "enemy_strip_backed_clean_overlay_suppression_v1"
 const ENEMY_SOURCE_CROP_VISUAL_VERSION := "enemy_turnaround_directional_safe_source_crop_v2"
+const ENEMY_LOW_SPEED_GAIT_THRESHOLD_SQ := 16.0
 const ENEMY_MOTION_REDRAW_INTERVAL := 1.0 / 8.0
 const ENEMY_IDLE_REDRAW_INTERVAL := 1.0 / 4.0
+static var _enemy_turnaround_texture_cache: Dictionary = {}
 var _motion_redraw_timer := 0.0
 var _enemy_sprite_direction_key := "forward"
 
@@ -44,7 +55,19 @@ func _load_enemy_texture(path: String, target_height: float = 104.0) -> void:
 
 func _load_enemy_turnaround_textures(slug: String, target_height: float = 104.0) -> void:
 	_enemy_sprite_target_height = target_height
-	_enemy_direction_textures.clear()
+	_enemy_sprite_slug = slug
+	var cached_textures := _get_or_build_enemy_turnaround_texture_cache(slug)
+	_enemy_direction_textures = cached_textures["directions"]
+	_enemy_gait_strip_textures = cached_textures["gait"]
+	_enemy_combat_strip_textures = cached_textures["combat"]
+	_enemy_texture = _enemy_direction_textures.get("forward", null)
+
+func _get_or_build_enemy_turnaround_texture_cache(slug: String) -> Dictionary:
+	if _enemy_turnaround_texture_cache.has(slug):
+		return _enemy_turnaround_texture_cache[slug]
+	var direction_textures := {}
+	var gait_strip_textures := {}
+	var combat_strip_textures := {}
 	var directions := [
 		"forward",
 		"back",
@@ -61,14 +84,36 @@ func _load_enemy_turnaround_textures(slug: String, target_height: float = 104.0)
 		if texture == null:
 			push_warning("Could not load enemy direction sprite: %s" % path)
 		else:
-			_enemy_direction_textures[direction] = texture
-	_enemy_texture = _enemy_direction_textures.get("forward", null)
+			direction_textures[direction] = texture
+		var strip_path := "res://assets/enemies/animation/%s_%s_gait_strip_v001.png" % [slug, direction]
+		var strip_texture := _load_png_texture(strip_path)
+		if strip_texture != null:
+			gait_strip_textures[direction] = strip_texture
+		var combat_strip_path := "res://assets/enemies/animation/%s_%s_weapon_strip_v001.png" % [slug, direction]
+		var combat_strip_texture := _load_png_texture(combat_strip_path)
+		if combat_strip_texture != null:
+			combat_strip_textures[direction] = combat_strip_texture
+	var cache_entry := {
+		"directions": direction_textures,
+		"gait": gait_strip_textures,
+		"combat": combat_strip_textures,
+	}
+	_enemy_turnaround_texture_cache[slug] = cache_entry
+	return cache_entry
 
 func _draw_enemy_sprite(facing: Vector2 = Vector2.DOWN, pose_offset: Vector2 = Vector2.ZERO, pose_scale: Vector2 = Vector2.ONE, pose_rotation: float = 0.0) -> void:
 	var texture := _get_enemy_texture_for_direction(_get_enemy_visual_facing(facing))
 	if texture == null:
 		return
 	var source_rect := _get_enemy_source_rect(texture)
+	var strip_texture := _get_enemy_combat_strip_texture()
+	if strip_texture == null:
+		strip_texture = _get_enemy_gait_strip_texture()
+	var using_animation_strip := false
+	if strip_texture != null:
+		texture = strip_texture
+		source_rect = _get_enemy_strip_source_rect(strip_texture, _get_enemy_strip_frame_index())
+		using_animation_strip = true
 	var visual_size := _get_enemy_sprite_size(texture, source_rect)
 	var draw_position := Vector2(-visual_size.x * 0.5, -visual_size.y * 0.5 + 8.0)
 	var tint := Color.WHITE if _hit_flash <= 0.0 else Color(1.0, 0.92, 0.82, 1.0)
@@ -76,9 +121,12 @@ func _draw_enemy_sprite(facing: Vector2 = Vector2.DOWN, pose_offset: Vector2 = V
 	var recoil_offset := _get_hit_recoil_offset() if recoil_ratio > 0.0 else Vector2.ZERO
 	var recoil_rotation := _hit_recoil_direction.orthogonal().x * 0.055 * recoil_ratio
 	var recoil_scale := Vector2(1.0 + recoil_ratio * 0.045, 1.0 - recoil_ratio * 0.035)
-	draw_set_transform(pose_offset + recoil_offset, pose_rotation + recoil_rotation, pose_scale * recoil_scale)
+	var body_pose := _get_enemy_body_gait_pose(_get_enemy_visual_facing(facing), _get_enemy_kind_for_vfx())
+	draw_set_transform(pose_offset + recoil_offset + body_pose["offset"], pose_rotation + recoil_rotation + body_pose["rotation"], pose_scale * recoil_scale * body_pose["scale"])
 	_draw_enemy_role_readability_plate(visual_size, _get_enemy_visual_facing(facing), _get_enemy_kind_for_vfx())
 	_draw_enemy_running_sprite(texture, draw_position, visual_size, source_rect, tint)
+	if not using_animation_strip:
+		_draw_enemy_human_motion_overlay(visual_size, _get_enemy_visual_facing(facing), _get_enemy_kind_for_vfx())
 	_draw_enemy_whole_sprite_role_glints(visual_size, _get_enemy_visual_facing(facing), _get_enemy_kind_for_vfx())
 	if recoil_ratio > 0.0 or _hit_flash > 0.0:
 		_draw_enemy_sprite_material_rim(visual_size, _get_enemy_visual_facing(facing), _get_enemy_kind_for_vfx())
@@ -87,6 +135,91 @@ func _draw_enemy_sprite(facing: Vector2 = Vector2.DOWN, pose_offset: Vector2 = V
 
 func _draw_enemy_running_sprite(texture: Texture2D, draw_position: Vector2, visual_size: Vector2, source_rect: Rect2, tint: Color) -> void:
 	draw_texture_rect_region(texture, Rect2(draw_position, visual_size), source_rect, tint)
+
+func _load_png_texture(path: String) -> Texture2D:
+	var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+	if image == null or image.is_empty():
+		return null
+	return ImageTexture.create_from_image(image)
+
+func _get_strip_texture_total_pixels(textures: Dictionary) -> int:
+	var total := 0
+	for texture in textures.values():
+		if texture is Texture2D:
+			total += int(texture.get_width() * texture.get_height())
+	return total
+
+func _get_strip_texture_max_height(textures: Dictionary) -> int:
+	var max_height := 0
+	for texture in textures.values():
+		if texture is Texture2D:
+			max_height = maxi(max_height, int(texture.get_height()))
+	return max_height
+
+func _get_enemy_gait_strip_texture() -> Texture2D:
+	if velocity.length_squared() <= ENEMY_LOW_SPEED_GAIT_THRESHOLD_SQ and _get_enemy_attack_motion_ratio() <= 0.0:
+		return null
+	return _enemy_gait_strip_textures.get(_enemy_sprite_direction_key, null)
+
+func _get_enemy_combat_strip_texture() -> Texture2D:
+	if _get_enemy_attack_motion_ratio() <= 0.02:
+		return null
+	return _enemy_combat_strip_textures.get(_enemy_sprite_direction_key, null)
+
+func _get_enemy_strip_source_rect(texture: Texture2D, frame_index: int) -> Rect2:
+	var frame_width := texture.get_width() / 8.0
+	return Rect2(Vector2(frame_width * float(frame_index), 0.0), Vector2(frame_width, texture.get_height()))
+
+func _get_enemy_strip_frame_index() -> int:
+	if _get_enemy_attack_motion_ratio() > 0.02:
+		return _get_enemy_combat_strip_frame_index()
+	var movement_ratio: float = clampf(velocity.length() / maxf(speed, 1.0), 0.0, 1.0)
+	var clock := _get_enemy_keyframed_gait_clock(movement_ratio, _get_enemy_kind_for_vfx())
+	return int(floor(wrapf(clock, 0.0, TAU) / (TAU / 8.0))) % 8
+
+func _get_enemy_combat_strip_frame_index() -> int:
+	var attack_ratio := _get_enemy_attack_motion_ratio()
+	return clampi(int(floor(clampf(attack_ratio, 0.0, 1.0) * 7.0)), 0, 7)
+
+func _get_enemy_body_gait_pose(facing: Vector2, role: String) -> Dictionary:
+	if facing.length_squared() <= 0.001:
+		facing = Vector2.DOWN
+	facing = facing.normalized()
+	var movement_ratio: float = clampf(velocity.length() / maxf(speed, 1.0), 0.0, 1.0)
+	var attack_ratio := _get_enemy_attack_motion_ratio()
+	var lunge_ratio := _get_enemy_lunge_motion_ratio()
+	var idle_ratio: float = clampf(1.0 - movement_ratio - attack_ratio - lunge_ratio, 0.0, 1.0)
+	var gait_clock := _get_enemy_keyframed_gait_clock(movement_ratio, role)
+	var footfall := absf(sin(gait_clock))
+	var sway := cos(gait_clock)
+	var role_weight := 1.22 if role == "shotgun_brute" else 0.82 if role == "knife_rusher" else 1.0
+	var weapon_brace := attack_ratio * (1.8 if role in ["rifleman", "shotgun_brute"] else 1.0)
+	var idle_breath_rate := 1.25 if role == "shotgun_brute" else 2.05 if role == "knife_rusher" else 1.65
+	var idle_breath := sin(_walk_time * idle_breath_rate) * idle_ratio
+	var idle_sway := cos(_walk_time * idle_breath_rate * 0.63) * idle_ratio
+	var body_drop := footfall * movement_ratio * 2.0 * role_weight + lunge_ratio * 1.6 + idle_breath * (0.9 if role == "shotgun_brute" else 0.65)
+	var forward_drive := movement_ratio * 1.0 + lunge_ratio * 4.5 + weapon_brace
+	var side_settle := sway * movement_ratio * 1.45 / role_weight + idle_sway * (0.45 if role == "shotgun_brute" else 0.62)
+	var rotation := clampf(sway * movement_ratio * 0.017 + idle_sway * 0.005 + facing.x * (lunge_ratio * 0.036 + attack_ratio * 0.015), -0.08, 0.08)
+	var compression := clampf(footfall * movement_ratio * 0.016 * role_weight + lunge_ratio * 0.025 + attack_ratio * 0.008 + maxf(0.0, idle_breath) * 0.007, 0.0, 0.06)
+	return {
+		"offset": facing * forward_drive + facing.orthogonal() * side_settle + Vector2(0.0, body_drop),
+		"rotation": rotation,
+		"scale": Vector2(1.0 + compression * 0.5, 1.0 - compression),
+	}
+
+func _get_enemy_keyframed_gait_clock(movement_ratio: float, role: String) -> float:
+	var role_rate := 1.18 if role == "knife_rusher" else 0.82 if role == "shotgun_brute" else 1.0
+	if movement_ratio <= 0.05:
+		return _walk_time * lerpf(1.3, 2.6, movement_ratio) * role_rate
+	var frame_count := 8.0
+	var raw_clock := _walk_time * lerpf(3.0, 12.0, movement_ratio) * 0.42 * role_rate
+	var cycle := wrapf(raw_clock / TAU, 0.0, 1.0)
+	var frame_index: float = floor(cycle * frame_count)
+	var frame_progress: float = cycle * frame_count - frame_index
+	var contact_hold := 0.2 if role in ["rifleman", "shotgun_brute"] else 0.14
+	var eased_progress := smoothstep(contact_hold, 1.0 - contact_hold, frame_progress)
+	return ((frame_index + eased_progress) / frame_count) * TAU
 
 func _draw_enemy_run_contacts(visual_size: Vector2, step: float, movement_ratio: float) -> void:
 	var base_y := visual_size.y * 0.46 + 8.0
@@ -115,6 +248,42 @@ func get_enemy_motion_redraw_interval() -> float:
 
 func get_enemy_sprite_material_marker_count() -> int:
 	return 26
+
+func get_enemy_human_motion_visual_version() -> String:
+	return ENEMY_HUMAN_MOTION_VISUAL_VERSION
+
+func get_enemy_human_motion_marker_count() -> int:
+	return 216
+
+func get_enemy_gait_strip_visual_version() -> String:
+	return ENEMY_GAIT_STRIP_VISUAL_VERSION if _enemy_gait_strip_textures.size() >= 8 else ""
+
+func get_enemy_gait_strip_direction_count() -> int:
+	return _enemy_gait_strip_textures.size()
+
+func get_enemy_combat_strip_visual_version() -> String:
+	return ENEMY_COMBAT_STRIP_VISUAL_VERSION if _enemy_combat_strip_textures.size() >= 8 else ""
+
+func get_enemy_combat_strip_direction_count() -> int:
+	return _enemy_combat_strip_textures.size()
+
+func get_enemy_animation_strip_budget_version() -> String:
+	return ENEMY_ANIMATION_STRIP_BUDGET_VERSION
+
+func get_enemy_animation_texture_cache_version() -> String:
+	return ENEMY_ANIMATION_TEXTURE_CACHE_VERSION
+
+func get_enemy_animation_texture_cache_archetype_count() -> int:
+	return _enemy_turnaround_texture_cache.size()
+
+func get_enemy_strip_overlay_mode_version() -> String:
+	return ENEMY_STRIP_OVERLAY_MODE_VERSION
+
+func get_enemy_animation_strip_total_pixels() -> int:
+	return _get_strip_texture_total_pixels(_enemy_gait_strip_textures) + _get_strip_texture_total_pixels(_enemy_combat_strip_textures)
+
+func get_enemy_animation_strip_max_height() -> int:
+	return maxi(_get_strip_texture_max_height(_enemy_gait_strip_textures), _get_strip_texture_max_height(_enemy_combat_strip_textures))
 
 func get_enemy_source_crop_visual_version() -> String:
 	return ENEMY_SOURCE_CROP_VISUAL_VERSION
@@ -178,7 +347,7 @@ func _get_enemy_texture_for_direction(facing: Vector2) -> Texture2D:
 	return _enemy_direction_textures.get(key, _enemy_texture)
 
 func _get_enemy_visual_facing(fallback_facing: Vector2 = Vector2.DOWN) -> Vector2:
-	if velocity.length_squared() > 64.0:
+	if velocity.length_squared() > ENEMY_LOW_SPEED_GAIT_THRESHOLD_SQ:
 		return velocity.normalized()
 	if fallback_facing.length_squared() > 0.001:
 		return fallback_facing.normalized()
@@ -274,7 +443,7 @@ func _request_enemy_visual_redraw(force: bool = false) -> void:
 		return
 	var has_attack_tell_active := has_method("has_attack_tell") and bool(call("has_attack_tell"))
 	var has_recover_tell_active := has_method("has_recover_tell") and bool(call("has_recover_tell"))
-	var has_active_visual := velocity.length_squared() > 64.0 or _hit_flash > 0.0 or _hit_recoil_timer > 0.0 or slow_timer > 0.0 or has_attack_tell_active or has_recover_tell_active
+	var has_active_visual := velocity.length_squared() > ENEMY_LOW_SPEED_GAIT_THRESHOLD_SQ or _hit_flash > 0.0 or _hit_recoil_timer > 0.0 or slow_timer > 0.0 or has_attack_tell_active or has_recover_tell_active
 	_motion_redraw_timer = ENEMY_MOTION_REDRAW_INTERVAL if has_active_visual else ENEMY_IDLE_REDRAW_INTERVAL
 	queue_redraw()
 
@@ -417,6 +586,176 @@ func _draw_enemy_whole_sprite_role_glints(visual_size: Vector2, facing: Vector2,
 			draw_circle(Vector2(0.0, belt_y + 7.0) + side * shoulder_half * 0.96, 1.7, brass)
 	if movement_ratio > 0.18:
 		draw_line(Vector2(0.0, boot_y + 3.0) - side * shoulder_half * 0.78, Vector2(0.0, boot_y + 8.0) - side * shoulder_half * 1.04, Color(0.8, 0.42, 0.16, 0.12 + movement_ratio * 0.12), 1.3)
+
+func _draw_enemy_human_motion_overlay(visual_size: Vector2, facing: Vector2, role: String) -> void:
+	if facing.length_squared() <= 0.001:
+		facing = Vector2.DOWN
+	facing = facing.normalized()
+	var side := facing.orthogonal()
+	var movement_ratio: float = clampf(velocity.length() / maxf(speed, 1.0), 0.0, 1.0)
+	var attack_ratio := _get_enemy_attack_motion_ratio()
+	var recoil_ratio := _get_hit_recoil_ratio()
+	var lunge_ratio := _get_enemy_lunge_motion_ratio()
+	var gait_clock := _get_enemy_keyframed_gait_clock(movement_ratio, role)
+	var step := sin(gait_clock)
+	var counter_step := cos(gait_clock)
+	var gait_frame := int(floor(wrapf(gait_clock, 0.0, TAU) / (TAU * 0.25))) % 4
+	var left_planted := gait_frame == 0 or gait_frame == 3
+	var right_planted := gait_frame == 1 or gait_frame == 2
+	var push_power := maxf(1.0 if gait_frame == 1 or gait_frame == 3 else 0.35, lunge_ratio)
+	var reach_power := maxf(1.0 if gait_frame == 0 or gait_frame == 2 else 0.45, lunge_ratio * 0.85)
+	var shoulder_y := clampf(-visual_size.y * 0.09, -17.0, -7.0)
+	var hip_y := clampf(visual_size.y * 0.08, 5.0, 15.0)
+	var boot_y := clampf(visual_size.y * 0.38, 30.0, 52.0)
+	var shoulder_half := clampf(visual_size.x * 0.18, 12.0, 23.0)
+	var hip_half := clampf(visual_size.x * 0.13, 9.0, 18.0)
+	var stride := step * lerpf(2.0, 11.0, movement_ratio + attack_ratio * 0.25)
+	var lift := absf(step) * 2.7 * movement_ratio
+	var accent := _get_enemy_material_accent(role)
+	var coat := accent.darkened(0.45)
+	coat.a = 0.34 + movement_ratio * 0.12 + attack_ratio * 0.1
+	var leather := Color(0.032, 0.016, 0.008, 0.56)
+	var brass := Color(0.98, 0.7, 0.24, 0.34 + attack_ratio * 0.28 + recoil_ratio * 0.14)
+	var bone := Color(0.94, 0.86, 0.62, 0.28 + attack_ratio * 0.24)
+	var role_bulk := 1.2 if role == "shotgun_brute" else 0.82 if role == "knife_rusher" else 1.0
+	var attack_hold := 1.0 if attack_ratio > 0.55 else attack_ratio * 1.8
+	var weapon_hold := maxf(attack_hold, lunge_ratio * 0.75)
+	var attack_brace := -facing * attack_hold * (5.0 if role in ["rifleman", "shotgun_brute"] else 2.0)
+	var torso_lean := facing * (movement_ratio * (3.0 + push_power * 1.1) + weapon_hold * 3.4 + lunge_ratio * 7.0) + attack_brace
+	var shoulder_center := Vector2(0.0, shoulder_y) + torso_lean + side * counter_step * movement_ratio * (1.5 + reach_power * 0.7) - side * weapon_hold * 2.6
+	var hip_center := Vector2(0.0, hip_y) + facing * movement_ratio * 1.0 - side * counter_step * movement_ratio * 1.5
+	if lunge_ratio > 0.0:
+		hip_center -= facing * lunge_ratio * 3.5
+		shoulder_center += facing * lunge_ratio * 4.5
+	var neck_center := shoulder_center - facing * 5.0 + Vector2(0.0, -4.0)
+	var coat_tail := hip_center - facing * (15.0 + movement_ratio * 5.0) - torso_lean * 0.25
+	var torso_glow := accent.lightened(0.18)
+	torso_glow.a = 0.18 + movement_ratio * 0.1 + attack_ratio * 0.13
+	draw_line(hip_center + Vector2(2.0, 3.0), shoulder_center + Vector2(2.0, 3.0), Color(0.018, 0.008, 0.004, 0.28), 8.0 * role_bulk)
+	draw_line(hip_center, shoulder_center, torso_glow, 4.8 * role_bulk)
+	draw_line(shoulder_center - side * shoulder_half * 0.9, shoulder_center + side * shoulder_half * 0.9, Color(0.08, 0.035, 0.016, 0.36 + attack_ratio * 0.12), 2.5 * role_bulk)
+	draw_line(hip_center - side * hip_half * 1.05, hip_center + side * hip_half * 1.05, brass, 1.8 * role_bulk)
+	draw_line(hip_center - side * hip_half * 0.52, coat_tail - side * (5.0 + movement_ratio * 3.0), Color(0.025, 0.012, 0.006, 0.28 + movement_ratio * 0.16), 3.0)
+	draw_line(hip_center + side * hip_half * 0.52, coat_tail + side * (5.0 + movement_ratio * 3.0), Color(0.025, 0.012, 0.006, 0.22 + movement_ratio * 0.13), 3.0)
+	draw_circle(neck_center, 2.0 + attack_ratio * 0.8, Color(accent.r, accent.g, accent.b, 0.18 + attack_ratio * 0.14))
+
+	for i in range(2):
+		var side_sign := -1.0 if i == 0 else 1.0
+		var phase := step * side_sign
+		var planted := left_planted if i == 0 else right_planted
+		var plant_power := maxf(1.0 if planted else 0.35, lunge_ratio * 0.95)
+		var hip := hip_center + side * hip_half * side_sign
+		var lunge_stretch := lunge_ratio * 12.0 * side_sign
+		var knee := hip + facing * (9.0 + stride * side_sign * 0.22 - plant_power * 1.8 + lunge_stretch * 0.24) + side * side_sign * (2.0 + (1.0 - plant_power) * 3.0)
+		var boot := Vector2(0.0, boot_y + lift * (1.0 if phase > 0.0 else 0.35) - plant_power * movement_ratio * 2.0) + side * (hip_half * side_sign + stride * side_sign * (0.72 + plant_power * 0.28)) + facing * lunge_stretch
+		draw_line(hip, knee, coat, 4.6)
+		draw_line(knee, boot, leather, 5.0)
+		draw_line(boot - side * side_sign * 2.0, boot + side * side_sign * 7.0 + facing * 2.5, Color(0.01, 0.007, 0.005, 0.64), 4.0)
+		if movement_ratio > 0.08:
+			draw_set_transform(boot + facing * 2.0, facing.angle(), Vector2(7.0 + plant_power * 7.0, 1.8 + plant_power * 1.5))
+			draw_circle(Vector2.ZERO, 1.0, Color(0.025, 0.012, 0.006, 0.14 + plant_power * movement_ratio * 0.18))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if movement_ratio > 0.14:
+			draw_line(boot - facing * 3.0, boot - facing * (9.0 + absf(stride) * 0.35), Color(0.72, 0.4, 0.15, 0.13 + movement_ratio * 0.14), 1.8)
+
+	var left_shoulder := shoulder_center - side * shoulder_half
+	var right_shoulder := shoulder_center + side * shoulder_half
+	var arm_swing := step * lerpf(1.0, 9.0, movement_ratio) + (reach_power - 0.5) * movement_ratio * 2.6
+	var weapon_side := -1.0
+	var weapon_shoulder := left_shoulder
+	var off_shoulder := right_shoulder
+	if role == "shotgun_brute":
+		weapon_side = 1.0
+		weapon_shoulder = right_shoulder
+		off_shoulder = left_shoulder
+	var off_hand := off_shoulder + side * (-weapon_side) * (4.0 - arm_swing * 0.2) + facing * (10.0 - arm_swing * 0.22)
+	var weapon_hand := weapon_shoulder + side * weapon_side * (3.0 + arm_swing * 0.24) + facing * (9.0 + weapon_hold * 18.0)
+	weapon_hand -= side * weapon_side * weapon_hold * 8.0
+	if weapon_hold > 0.0:
+		off_hand += facing * (5.0 + weapon_hold * 4.0) - side * weapon_side * 3.0
+		weapon_hand += facing * (4.0 + weapon_hold * 5.0 + lunge_ratio * 4.0)
+	if role == "rifleman":
+		off_hand = weapon_hand + facing * (18.0 + weapon_hold * 8.0) - side * weapon_side * (6.0 + weapon_hold * 2.0)
+	elif role == "shotgun_brute":
+		off_hand = weapon_hand + facing * (15.0 + weapon_hold * 7.0) - side * weapon_side * (10.0 + weapon_hold * 4.0)
+	draw_line(off_shoulder, off_hand, Color(0.1, 0.055, 0.03, 0.44), 4.8)
+	draw_line(off_shoulder + facing * 2.0, off_hand, coat.lightened(0.28), 1.8)
+	draw_line(weapon_shoulder, weapon_hand, Color(0.095, 0.045, 0.022, 0.58 + attack_ratio * 0.16), 5.2)
+	draw_line(weapon_shoulder + facing * 3.0, weapon_hand, brass, 1.8)
+	draw_circle(weapon_hand, 2.2 + attack_ratio * 1.2, brass)
+	_draw_enemy_drawn_weapon_pose(weapon_hand, off_hand, facing, side, role, weapon_hold, brass, bone)
+
+func _get_enemy_attack_motion_ratio() -> float:
+	var ratio := 0.0
+	if has_method("get_attack_tell_strength"):
+		ratio = maxf(ratio, clampf(float(call("get_attack_tell_strength")), 0.0, 1.0))
+	if has_method("get_recover_tell_strength"):
+		ratio = maxf(ratio, 1.0 - clampf(float(call("get_recover_tell_strength")), 0.0, 1.0))
+	if has_method("has_swarm_warning_tell") and bool(call("has_swarm_warning_tell")):
+		ratio = maxf(ratio, 0.85)
+	if _get_enemy_kind_for_vfx() == "knife_rusher" and velocity.length_squared() > 1200.0:
+		ratio = maxf(ratio, 0.45)
+	if _hit_recoil_timer > 0.0:
+		ratio = maxf(ratio, _get_hit_recoil_ratio() * 0.5)
+	return clampf(ratio, 0.0, 1.0)
+
+func _get_enemy_lunge_motion_ratio() -> float:
+	if speed <= 0.0:
+		return 0.0
+	var velocity_ratio := velocity.length() / maxf(speed, 1.0)
+	var role := _get_enemy_kind_for_vfx()
+	if role == "duelist" and velocity_ratio > 1.45:
+		return clampf((velocity_ratio - 1.45) / 1.8, 0.0, 1.0)
+	if role == "hunter" and velocity_ratio > 1.25:
+		return clampf((velocity_ratio - 1.25) / 1.7, 0.0, 1.0)
+	if role == "knife_rusher" and velocity_ratio > 1.05:
+		return clampf((velocity_ratio - 1.05) / 1.15, 0.0, 0.7)
+	return 0.0
+
+func _draw_enemy_drawn_weapon_pose(hand: Vector2, off_hand: Vector2, facing: Vector2, side: Vector2, role: String, attack_ratio: float, brass: Color, bone: Color) -> void:
+	var draw := clampf(attack_ratio, 0.0, 1.0)
+	match role:
+		"rifleman":
+			var muzzle := hand + facing * (44.0 + draw * 18.0) - side * (5.0 + draw * 4.0)
+			var stock := hand - facing * (12.0 + draw * 4.0) + side * 6.0
+			draw_line(stock + Vector2(2.0, 3.0), hand + Vector2(2.0, 3.0), Color(0.025, 0.012, 0.006, 0.32), 7.0)
+			draw_line(stock, hand, Color(0.18, 0.095, 0.045, 0.78), 5.2)
+			draw_line(hand + Vector2(2.0, 3.0), muzzle + Vector2(2.0, 3.0), Color(0.035, 0.018, 0.008, 0.35), 6.0)
+			draw_line(hand, muzzle, Color(0.1, 0.055, 0.028, 0.74), 4.6)
+			draw_line(hand + facing * 6.0, muzzle, brass, 1.8)
+			draw_line(off_hand - side * 2.0, muzzle - facing * (10.0 + draw * 4.0), Color(0.94, 0.82, 0.56, 0.34), 2.0)
+			draw_circle(off_hand, 2.2, bone)
+		"shotgun_brute":
+			var muzzle := hand + facing * (42.0 + draw * 14.0) - side * (10.0 + draw * 8.0)
+			var stock := hand - facing * (11.0 + draw * 4.0) + side * 8.0
+			draw_line(stock + Vector2(2.0, 4.0), hand + Vector2(2.0, 4.0), Color(0.025, 0.012, 0.006, 0.36), 10.0)
+			draw_line(stock, hand, Color(0.19, 0.088, 0.036, 0.82), 7.8)
+			draw_line(hand + Vector2(2.0, 4.0), muzzle + Vector2(2.0, 4.0), Color(0.035, 0.018, 0.008, 0.36), 9.0)
+			draw_line(hand, muzzle, Color(0.11, 0.052, 0.024, 0.8), 7.2)
+			draw_line(hand + facing * 7.0, muzzle, brass, 2.5)
+			draw_line(off_hand, muzzle - facing * (13.0 + draw * 4.0), Color(0.94, 0.82, 0.56, 0.34), 2.6)
+			draw_circle(off_hand, 2.8, bone)
+		"knife_rusher":
+			var tip := hand + facing * (21.0 + draw * 19.0) - side * (2.0 + draw * 4.0)
+			draw_line(hand + Vector2(1.5, 2.0), tip + Vector2(1.5, 2.0), Color(0.025, 0.012, 0.006, 0.34), 4.8)
+			draw_line(hand, tip, bone.lightened(0.08), 2.6)
+			draw_line(off_hand, off_hand + facing * (8.0 + draw * 6.0) + side * 6.0, Color(0.16, 0.08, 0.04, 0.4), 3.2)
+		"hunter":
+			var tip := hand + facing * (28.0 + draw * 24.0) - side * (7.0 + draw * 6.0)
+			draw_line(hand + Vector2(1.5, 2.5), tip + Vector2(1.5, 2.5), Color(0.025, 0.012, 0.006, 0.36), 5.6)
+			draw_line(hand, tip, bone.lightened(0.05), 3.0)
+			draw_line(off_hand, off_hand + facing * (12.0 + draw * 7.0) + side * 4.0, Color(0.14, 0.07, 0.035, 0.42), 3.6)
+		"duelist":
+			var tip := hand + facing * (34.0 + draw * 32.0) - side * (10.0 + draw * 9.0)
+			draw_line(off_hand, hand - facing * 8.0 + side * 5.0, Color(0.14, 0.07, 0.035, 0.42), 3.6)
+			draw_line(hand - side * 6.0, hand + side * 6.0, brass, 2.0)
+			draw_line(hand + Vector2(2.0, 3.0), tip + Vector2(2.0, 3.0), Color(0.025, 0.012, 0.006, 0.34), 6.0)
+			draw_line(hand, tip, bone.lightened(0.1), 3.0)
+			if draw > 0.0:
+				draw_arc(Vector2.ZERO, 36.0 + draw * 16.0, facing.angle() - 0.6, facing.angle() + 0.6, 16, Color(brass.r, brass.g, brass.b, 0.18 + draw * 0.24), 2.0)
+		_:
+			var muzzle := hand + facing * (24.0 + draw * 16.0)
+			draw_line(hand, muzzle, brass, 2.0)
 
 func _draw_enemy_role_readability_plate(visual_size: Vector2, facing: Vector2, role: String) -> void:
 	if facing.length_squared() <= 0.001:

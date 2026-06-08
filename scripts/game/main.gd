@@ -23,6 +23,9 @@ const PAYDAY_PICKUP_REDRAW_BUDGET_VERSION := "payday_pickup_redraw_budget_4fps_v
 const DYNAMIC_ARENA_OVERLAY_VISUAL_VERSION := "dynamic_hazard_payday_overlay_primitive_budget_v2"
 const DYNAMIC_ARENA_OVERLAY_PRIMITIVE_BUDGET_VERSION := "dynamic_overlay_hazard_payday_primitive_budget_v1"
 const PERFORMANCE_SAMPLE_VERSION := "headless_runtime_fps_sampler_v1"
+const PERF_TELEMETRY_VERSION := "perf_overlay_render_monitor_logging_v1"
+const MEMORY_TELEMETRY_VERSION := "memory_release_leak_probe_v1"
+const PERF_LOG_INTERVAL := 1.0
 const SALOON_COVER_VISUAL_VERSION := "saloon_table_cover_edge_readability_v2"
 const POWDER_KEG_VISUAL_VERSION := "powder_keg_danger_silhouette_v2"
 const ARENA_FLOOR_VISUAL_VERSION := "courtyard_duel_worn_floor_readability_v2"
@@ -68,6 +71,46 @@ const VISUAL_QA_CAPTURE_FILES: Array[String] = [
 	"09_last_high_noon.png",
 	"10_extraction_ledger.png",
 	"11_information_hunter_card.png",
+	"12_runtime_animation_showcase.png",
+	"12_player_animation_strip_review.png",
+	"13_enemy_animation_strip_review.png",
+	"14_runtime_gait_contact_shift.png",
+	"15_runtime_gait_contact_shift_late.png",
+]
+const ANIMATION_STRIP_QA_VERSION := "character_animation_strip_review_grid_v1"
+const ANIMATION_STRIP_FRAME_COUNT := 8
+const ANIMATION_STRIP_THUMB_SIZE := Vector2i(48, 64)
+const ANIMATION_STRIP_PLAYER_DIRECTIONS: Array[String] = [
+	"forward",
+	"back",
+	"left",
+	"right",
+	"angled",
+	"forward_left",
+	"forward_right",
+	"back_left",
+	"back_right",
+	"top_left",
+	"top_right",
+	"bottom_left",
+	"bottom_right",
+]
+const ANIMATION_STRIP_ENEMY_DIRECTIONS: Array[String] = [
+	"forward",
+	"back",
+	"left",
+	"right",
+	"top_left",
+	"top_right",
+	"bottom_left",
+	"bottom_right",
+]
+const ANIMATION_STRIP_ENEMY_SLUGS: Array[String] = [
+	"enemy_knife_rusher_male",
+	"enemy_rifleman_male",
+	"enemy_shotgun_brute_male",
+	"enemy_hunter_male",
+	"enemy_duelist_male",
 ]
 
 const LEVEL_ROSTER := [
@@ -522,6 +565,24 @@ const QUEST_DEFINITIONS := [
 	},
 ]
 
+const UPGRADE_DEFINITIONS := [
+	{"id": "iron_heart", "name": "Iron Heart", "category": "SURVIVAL", "description": "+1 max heart every run.", "cost": 2, "effect": "max_health_bonus", "value": 1.0},
+	{"id": "tin_star_grit", "name": "Tin Star Grit", "category": "SURVIVAL", "description": "Start each run with a longer opening safety veil.", "cost": 1, "effect": "opening_grace_bonus", "value": 0.55},
+	{"id": "spur_boots", "name": "Spur Boots", "category": "MOBILITY", "description": "Move 8% faster across the courtyard.", "cost": 2, "effect": "move_speed", "value": 1.08},
+	{"id": "quick_spurs", "name": "Quick Spurs", "category": "MOBILITY", "description": "Dash cooldown recovers 12% faster.", "cost": 2, "effect": "dash_cooldown", "value": 0.88},
+	{"id": "long_ride", "name": "Long Ride", "category": "MOBILITY", "description": "Dash carries 10% farther.", "cost": 2, "effect": "dash_duration", "value": 1.1},
+	{"id": "honed_edge", "name": "Honed Edge", "category": "BLADE", "description": "Sword damage increases 12%.", "cost": 2, "effect": "blade_damage", "value": 1.12},
+	{"id": "silver_reach", "name": "Silver Reach", "category": "BLADE", "description": "Sword reach increases 10%.", "cost": 2, "effect": "blade_range", "value": 1.1},
+	{"id": "duelist_guard", "name": "Duelist Guard", "category": "BLADE", "description": "Parry timing lasts 18% longer.", "cost": 2, "effect": "parry_time", "value": 1.18},
+	{"id": "brass_loads", "name": "Brass Loads", "category": "GUN", "description": "Gun ability damage increases 10%.", "cost": 2, "effect": "gun_damage", "value": 1.1},
+	{"id": "fast_cylinder", "name": "Fast Cylinder", "category": "GUN", "description": "Reloads finish 15% sooner.", "cost": 2, "effect": "reload_speed", "value": 0.85},
+	{"id": "deep_pockets", "name": "Deep Pockets", "category": "GUN", "description": "All guns carry +1 round.", "cost": 3, "effect": "ammo_capacity_bonus", "value": 1},
+	{"id": "cool_hand", "name": "Cool Hand", "category": "ABILITY", "description": "Ability cooldowns are 10% shorter.", "cost": 3, "effect": "ability_cooldown", "value": 0.9},
+	{"id": "dust_charm", "name": "Dust Charm", "category": "ABILITY", "description": "Dust Veil and Ghost Step last 20% longer.", "cost": 2, "effect": "veil_duration", "value": 1.2},
+	{"id": "bounty_ledger", "name": "Bounty Ledger", "category": "REWARD", "description": "Payday satchels pay 35% more credits.", "cost": 2, "effect": "payday_credit_bonus", "value": 1.35},
+	{"id": "combo_watch", "name": "Combo Watch", "category": "STYLE", "description": "Style chains last one second longer.", "cost": 2, "effect": "combo_timer_bonus", "value": 1.0},
+]
+
 var vault_data: Dictionary
 var player
 var director
@@ -530,6 +591,8 @@ var save_system
 var vfx_layer
 var audio_director
 var hud
+var perf_overlay_layer: CanvasLayer
+var perf_overlay_label: Label
 var camera: Camera2D
 var backdrop_cache := StaticBackdropCache.new()
 var dynamic_arena_overlay := DynamicArenaOverlay.new()
@@ -567,6 +630,17 @@ var _arena_redraw_budget_timer := 0.0
 var _dynamic_overlay_redraw_budget_timer := 0.0
 var _payday_redraw_budget_timer := 0.0
 var _impact_freeze_timer := 0.0
+var _perf_overlay_enabled := false
+var _perf_log_enabled := false
+var _memory_log_enabled := false
+var _perf_log_timer := 0.0
+var _memory_log_timer := 0.0
+var _perf_last_frame_usec := 0
+var _perf_window_worst_frame_ms := 0.0
+var _perf_arena_redraw_requests := 0
+var _perf_dynamic_overlay_redraw_requests := 0
+var _perf_payday_redraw_requests := 0
+var _perf_hud_update_requests := 0
 var _smoke_test_active := false
 var _smoke_failures: Array[String] = []
 var _visual_qa_paths: Array[String] = []
@@ -641,21 +715,34 @@ func _ready() -> void:
 	hud.play_requested.connect(_on_menu_play_requested)
 	hud.ability_loadout_changed.connect(_on_ability_loadout_changed)
 	hud.gun_loadout_changed.connect(_on_gun_loadout_changed)
+	hud.upgrade_purchase_requested.connect(_on_upgrade_purchase_requested)
+	if hud.has_method("set_main_menu_memory_log_enabled"):
+		hud.set_main_menu_memory_log_enabled(_is_memory_log_requested())
+	_apply_upgrade_modifiers_to_systems()
 	hud.set_ability_loadout_data(program_system.get_unlocked_ids(), program_system.equipped)
 	hud.set_gun_loadout_data(unlocked_guns, equipped_gun)
+	_refresh_upgrade_screen()
 	_refresh_quest_screen()
 
 	add_child(enemy_root)
 	hud.show_main_menu()
+	_setup_perf_telemetry()
 	if _is_smoke_test_requested():
 		call_deferred("_run_smoke_test")
+	elif _is_animation_strip_qa_requested():
+		call_deferred("_run_animation_strip_qa")
 	elif _is_visual_qa_requested():
 		call_deferred("_run_visual_qa")
+	elif _is_menu_performance_test_requested():
+		call_deferred("_run_menu_performance_test")
+	elif _is_heavy_combat_performance_test_requested():
+		call_deferred("_run_heavy_combat_performance_test")
 	elif _is_performance_test_requested():
 		call_deferred("_run_performance_test")
 
 func _process(delta: float) -> void:
 	_update_impact_freeze(delta)
+	_update_perf_telemetry(delta)
 
 func _physics_process(delta: float) -> void:
 	if menu_open or run_complete:
@@ -678,6 +765,7 @@ func _physics_process(delta: float) -> void:
 	_update_reload_ready_feedback()
 	_update_training_tracker()
 	var hud_wave := current_wave if wave_in_progress else mini(current_wave + 1, MAX_LEVEL)
+	_perf_hud_update_requests += 1
 	hud.update_run(player, director, program_system, hud_wave, _living_enemy_count(), MAX_LEVEL, _get_level_title(hud_wave), _get_level_notice(hud_wave), style_score, combo_count, _get_combo_fraction(), _get_style_rank(), program_system.get_ammo_summary(), wave_in_progress, wave_break_timer, _pending_payday_count())
 
 func _is_smoke_test_requested() -> bool:
@@ -686,8 +774,26 @@ func _is_smoke_test_requested() -> bool:
 func _is_visual_qa_requested() -> bool:
 	return _is_cmdline_flag_requested("--dust-visual-qa")
 
+func _is_animation_strip_qa_requested() -> bool:
+	return _is_cmdline_flag_requested("--dust-animation-strip-qa")
+
 func _is_performance_test_requested() -> bool:
 	return _is_cmdline_flag_requested("--dust-performance-test")
+
+func _is_menu_performance_test_requested() -> bool:
+	return _is_cmdline_flag_requested("--dust-menu-performance-test")
+
+func _is_heavy_combat_performance_test_requested() -> bool:
+	return _is_cmdline_flag_requested("--dust-heavy-combat-performance-test")
+
+func _is_perf_overlay_requested() -> bool:
+	return _is_cmdline_flag_requested("--dust-perf-overlay")
+
+func _is_perf_log_requested() -> bool:
+	return _is_cmdline_flag_requested("--dust-perf-log")
+
+func _is_memory_log_requested() -> bool:
+	return _is_cmdline_flag_requested("--dust-memory-log")
 
 func _is_cmdline_flag_requested(flag: String) -> bool:
 	for arg in OS.get_cmdline_user_args():
@@ -698,12 +804,14 @@ func _is_cmdline_flag_requested(flag: String) -> bool:
 func _request_arena_visual_redraw(force: bool = false) -> void:
 	if force or _smoke_test_active:
 		_arena_redraw_budget_timer = 0.0
+		_perf_arena_redraw_requests += 1
 		queue_redraw()
 		_request_dynamic_arena_overlay_redraw(true)
 		return
 	if _arena_redraw_budget_timer > 0.0:
 		return
 	_arena_redraw_budget_timer = ARENA_REDRAW_INTERVAL
+	_perf_arena_redraw_requests += 1
 	queue_redraw()
 
 func _request_dynamic_arena_overlay_redraw(force: bool = false) -> void:
@@ -711,29 +819,394 @@ func _request_dynamic_arena_overlay_redraw(force: bool = false) -> void:
 		return
 	if force or _smoke_test_active:
 		_dynamic_overlay_redraw_budget_timer = 0.0
+		_perf_dynamic_overlay_redraw_requests += 1
 		dynamic_arena_overlay.queue_redraw()
 		return
 	if _dynamic_overlay_redraw_budget_timer > 0.0:
 		return
 	_dynamic_overlay_redraw_budget_timer = DYNAMIC_ARENA_OVERLAY_REDRAW_INTERVAL
+	_perf_dynamic_overlay_redraw_requests += 1
 	dynamic_arena_overlay.queue_redraw()
 
 func _request_payday_visual_redraw(force: bool = false) -> void:
 	if force or _smoke_test_active:
 		_payday_redraw_budget_timer = 0.0
+		_perf_payday_redraw_requests += 1
 		_request_dynamic_arena_overlay_redraw(true)
 		return
 	if _payday_redraw_budget_timer > 0.0:
 		return
 	_payday_redraw_budget_timer = PAYDAY_PICKUP_REDRAW_INTERVAL
+	_perf_payday_redraw_requests += 1
 	_request_dynamic_arena_overlay_redraw()
+
+func _setup_perf_telemetry() -> void:
+	_perf_log_enabled = _is_perf_log_requested()
+	_memory_log_enabled = _is_memory_log_requested()
+	_perf_overlay_enabled = _is_perf_overlay_requested()
+	perf_overlay_layer = CanvasLayer.new()
+	perf_overlay_layer.layer = 120
+	add_child(perf_overlay_layer)
+	perf_overlay_label = Label.new()
+	perf_overlay_label.position = Vector2(12.0, 12.0)
+	perf_overlay_label.visible = _perf_overlay_enabled
+	perf_overlay_label.add_theme_color_override("font_color", Color(0.96, 0.92, 0.76, 1.0))
+	perf_overlay_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.9))
+	perf_overlay_label.add_theme_constant_override("shadow_offset_x", 2)
+	perf_overlay_label.add_theme_constant_override("shadow_offset_y", 2)
+	perf_overlay_layer.add_child(perf_overlay_label)
+	_perf_last_frame_usec = Time.get_ticks_usec()
+	_reset_perf_counters()
+	if _perf_log_enabled:
+		print("DUST_PERF_LOG: enabled version=%s" % PERF_TELEMETRY_VERSION)
+	if _memory_log_enabled:
+		print("DUST_MEMORY_LOG: enabled version=%s" % MEMORY_TELEMETRY_VERSION)
+		_print_memory_snapshot("main_ready_after_menu_show")
+
+func _set_perf_overlay_enabled(enabled: bool) -> void:
+	_perf_overlay_enabled = enabled
+	if perf_overlay_label != null and is_instance_valid(perf_overlay_label):
+		perf_overlay_label.visible = enabled
+
+func _update_perf_telemetry(delta: float) -> void:
+	if not _perf_overlay_enabled and not _perf_log_enabled and not _memory_log_enabled:
+		return
+	var now_usec := Time.get_ticks_usec()
+	if _perf_last_frame_usec > 0:
+		var frame_ms := float(now_usec - _perf_last_frame_usec) / 1000.0
+		_perf_window_worst_frame_ms = maxf(_perf_window_worst_frame_ms, frame_ms)
+	_perf_last_frame_usec = now_usec
+	if _perf_overlay_enabled and perf_overlay_label != null and is_instance_valid(perf_overlay_label):
+		perf_overlay_label.text = _format_perf_snapshot("live")
+	if _perf_log_enabled:
+		_perf_log_timer += delta
+		if _perf_log_timer >= PERF_LOG_INTERVAL:
+			print("DUST_PERF_LOG: %s" % _format_perf_snapshot("live").replace("\n", " | "))
+			_perf_log_timer = 0.0
+			_reset_perf_counters()
+	if _memory_log_enabled:
+		_memory_log_timer += delta
+		if _memory_log_timer >= PERF_LOG_INTERVAL:
+			_print_memory_snapshot("live")
+			_memory_log_timer = 0.0
+
+func _reset_perf_counters() -> void:
+	_perf_window_worst_frame_ms = 0.0
+	_perf_arena_redraw_requests = 0
+	_perf_dynamic_overlay_redraw_requests = 0
+	_perf_payday_redraw_requests = 0
+	_perf_hud_update_requests = 0
+
+func _bytes_to_mb(value: float) -> float:
+	return value / 1048576.0
+
+func _format_memory_snapshot(label: String) -> String:
+	var static_mb := _bytes_to_mb(float(Performance.get_monitor(Performance.MEMORY_STATIC)))
+	var static_max_mb := _bytes_to_mb(float(Performance.get_monitor(Performance.MEMORY_STATIC_MAX)))
+	var texture_mb := _bytes_to_mb(float(Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED)))
+	var buffer_mb := _bytes_to_mb(float(Performance.get_monitor(Performance.RENDER_BUFFER_MEM_USED)))
+	var video_mb := _bytes_to_mb(float(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED)))
+	var object_count := int(Performance.get_monitor(Performance.OBJECT_COUNT))
+	var resource_count := int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT))
+	var node_count := int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
+	var orphan_node_count := int(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT))
+	var menu_loaded := false
+	if hud != null and is_instance_valid(hud) and hud.has_method("get_main_menu_loaded"):
+		menu_loaded = bool(hud.get_main_menu_loaded())
+	return (
+		"label=%s version=%s menu_loaded=%s objects=%d resources=%d nodes=%d orphan_nodes=%d "
+		+ "static_mb=%.1f static_max_mb=%.1f texture_mb=%.1f buffer_mb=%.1f video_mb=%.1f enemies=%d pickups=%d vfx=%d"
+	) % [
+		label,
+		MEMORY_TELEMETRY_VERSION,
+		str(menu_loaded),
+		object_count,
+		resource_count,
+		node_count,
+		orphan_node_count,
+		static_mb,
+		static_max_mb,
+		texture_mb,
+		buffer_mb,
+		video_mb,
+		_living_enemy_count(),
+		payday_pickups.size(),
+		_get_active_vfx_count(),
+	]
+
+func _print_memory_snapshot(label: String) -> void:
+	if not _memory_log_enabled:
+		return
+	print("DUST_MEMORY_LOG: %s" % _format_memory_snapshot(label))
+
+func _get_active_vfx_count() -> int:
+	if vfx_layer != null and is_instance_valid(vfx_layer) and vfx_layer.has_method("get_active_effect_count"):
+		return int(vfx_layer.get_active_effect_count())
+	return 0
+
+func _format_perf_snapshot(scenario: String, sample_data: Dictionary = {}) -> String:
+	var fps := float(Performance.get_monitor(Performance.TIME_FPS))
+	var process_ms := float(Performance.get_monitor(Performance.TIME_PROCESS)) * 1000.0
+	var physics_ms := float(Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS)) * 1000.0
+	var draw_calls := int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+	var render_objects := int(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME))
+	var primitives := int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
+	var texture_mb := float(Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED)) / 1048576.0
+	var video_mb := float(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED)) / 1048576.0
+	var vfx_count := _get_active_vfx_count()
+	var avg_fps := float(sample_data.get("avg_fps", fps))
+	var min_fps := float(sample_data.get("min_fps", fps))
+	var worst_ms := float(sample_data.get("worst_frame_ms", _perf_window_worst_frame_ms))
+	return (
+		"scenario=%s version=%s\nfps=%.1f avg=%.1f min=%.1f worst_ms=%.1f process_ms=%.2f physics_ms=%.2f\n"
+		+ "draw_calls=%d objects=%d primitives=%d texture_mb=%.1f video_mb=%.1f\n"
+		+ "enemies=%d vfx=%d arena_redraws=%d overlay_redraws=%d payday_redraws=%d hud_updates=%d"
+	) % [
+		scenario,
+		PERF_TELEMETRY_VERSION,
+		fps,
+		avg_fps,
+		min_fps,
+		worst_ms,
+		process_ms,
+		physics_ms,
+		draw_calls,
+		render_objects,
+		primitives,
+		texture_mb,
+		video_mb,
+		_living_enemy_count(),
+		vfx_count,
+		_perf_arena_redraw_requests,
+		_perf_dynamic_overlay_redraw_requests,
+		_perf_payday_redraw_requests,
+		_perf_hud_update_requests,
+	]
+
+func _sample_perf_window(scenario: String, warmup_frames: int = 20, sample_frames: int = 180) -> Dictionary:
+	_reset_perf_counters()
+	_print_memory_snapshot("%s_sample_before_warmup" % scenario)
+	await _smoke_wait_frames(warmup_frames)
+	_print_memory_snapshot("%s_sample_after_warmup" % scenario)
+	var samples := 0
+	var fps_sum := 0.0
+	var min_fps := INF
+	var worst_frame_ms := 0.0
+	var sample_start_usec := Time.get_ticks_usec()
+	for frame_index in range(sample_frames):
+		var frame_start_usec := Time.get_ticks_usec()
+		await get_tree().process_frame
+		var frame_ms := float(Time.get_ticks_usec() - frame_start_usec) / 1000.0
+		worst_frame_ms = maxf(worst_frame_ms, frame_ms)
+		var fps := 1000.0 / maxf(0.001, frame_ms)
+		if fps > 0.0:
+			min_fps = minf(min_fps, fps)
+			fps_sum += fps
+			samples += 1
+	var elapsed_ms := float(Time.get_ticks_usec() - sample_start_usec) / 1000.0
+	if samples == 0:
+		min_fps = 0.0
+	var result := {
+		"samples": samples,
+		"avg_fps": fps_sum / maxf(1.0, float(samples)),
+		"min_fps": min_fps,
+		"worst_frame_ms": worst_frame_ms,
+		"elapsed_ms": elapsed_ms,
+	}
+	print("DUST_PERF_DETAIL: %s" % _format_perf_snapshot(scenario, result).replace("\n", " | "))
+	_print_memory_snapshot("%s_sample_after" % scenario)
+	return result
+
+func _run_animation_strip_qa() -> void:
+	_smoke_test_active = true
+	_smoke_failures.clear()
+	_prepare_visual_qa_output_dir()
+	var player_paths := _get_player_animation_strip_paths()
+	var enemy_paths := _get_enemy_animation_strip_paths()
+	_smoke_assert(player_paths.size() == 26, "animation strip QA should review 26 player gait and saber strips")
+	_smoke_assert(enemy_paths.size() == 80, "animation strip QA should review 80 enemy gait and weapon strips")
+	var player_output := _write_animation_strip_review_image(
+		"12_player_animation_strip_review.png",
+		player_paths,
+		Color(0.16, 0.34, 0.48, 1.0)
+	)
+	var enemy_output := _write_animation_strip_review_image(
+		"13_enemy_animation_strip_review.png",
+		enemy_paths,
+		Color(0.78, 0.2, 0.11, 1.0)
+	)
+	if _smoke_failures.is_empty():
+		print("DUST_ANIMATION_STRIP_QA: PASS version=%s player_strips=%d enemy_strips=%d frame_count=%d outputs=%s,%s" % [
+			ANIMATION_STRIP_QA_VERSION,
+			player_paths.size(),
+			enemy_paths.size(),
+			ANIMATION_STRIP_FRAME_COUNT,
+			player_output,
+			enemy_output,
+		])
+		get_tree().quit(0)
+	else:
+		for failure in _smoke_failures:
+			push_error("DUST_ANIMATION_STRIP_QA: %s" % failure)
+		get_tree().quit(1)
+
+func _get_player_animation_strip_paths() -> Array[String]:
+	var paths: Array[String] = []
+	for direction in ANIMATION_STRIP_PLAYER_DIRECTIONS:
+		paths.append("res://assets/characters/player_animation/player_cowgirl_%s_gait_strip_v001.png" % direction)
+		paths.append("res://assets/characters/player_animation/player_cowgirl_%s_saber_strip_v001.png" % direction)
+	return paths
+
+func _get_enemy_animation_strip_paths() -> Array[String]:
+	var paths: Array[String] = []
+	for slug in ANIMATION_STRIP_ENEMY_SLUGS:
+		for direction in ANIMATION_STRIP_ENEMY_DIRECTIONS:
+			paths.append("res://assets/enemies/animation/%s_%s_gait_strip_v001.png" % [slug, direction])
+			paths.append("res://assets/enemies/animation/%s_%s_weapon_strip_v001.png" % [slug, direction])
+	return paths
+
+func _write_animation_strip_review_image(file_name: String, strip_paths: Array[String], marker_color: Color) -> String:
+	var margin := 8
+	var row_gap := 4
+	var marker_width := 6
+	var row_height := ANIMATION_STRIP_THUMB_SIZE.y
+	var canvas_width := margin * 2 + marker_width + 4 + ANIMATION_STRIP_FRAME_COUNT * ANIMATION_STRIP_THUMB_SIZE.x
+	var canvas_height := margin * 2 + strip_paths.size() * row_height + maxi(0, strip_paths.size() - 1) * row_gap
+	var canvas := Image.create(canvas_width, canvas_height, false, Image.FORMAT_RGBA8)
+	canvas.fill(Color(0.055, 0.04, 0.03, 1.0))
+	var loaded_strips := 0
+	var detailed_strips := 0
+	var moving_strips := 0
+	var missing_detail_paths: Array[String] = []
+	var missing_motion_paths: Array[String] = []
+	for row_index in range(strip_paths.size()):
+		var strip_path := strip_paths[row_index]
+		var source := Image.load_from_file(ProjectSettings.globalize_path(strip_path))
+		if source == null or source.is_empty():
+			_smoke_assert(false, "animation strip QA should load %s" % strip_path)
+			continue
+		if source.get_width() < ANIMATION_STRIP_FRAME_COUNT or source.get_width() % ANIMATION_STRIP_FRAME_COUNT != 0:
+			_smoke_assert(false, "animation strip QA strip %s should divide into eight frames" % strip_path)
+			continue
+		if _animation_strip_has_limb_weapon_detail(source):
+			detailed_strips += 1
+		else:
+			missing_detail_paths.append(strip_path)
+		if _animation_strip_has_frame_motion(source):
+			moving_strips += 1
+		else:
+			missing_motion_paths.append(strip_path)
+		var frame_width := source.get_width() / ANIMATION_STRIP_FRAME_COUNT
+		var frame_height := source.get_height()
+		var row_y := margin + row_index * (row_height + row_gap)
+		_draw_animation_strip_row_marker(canvas, margin, row_y, marker_width, row_height, marker_color)
+		for frame_index in range(ANIMATION_STRIP_FRAME_COUNT):
+			var frame := Image.create(frame_width, frame_height, false, Image.FORMAT_RGBA8)
+			frame.blit_rect(source, Rect2i(frame_index * frame_width, 0, frame_width, frame_height), Vector2i.ZERO)
+			frame.resize(ANIMATION_STRIP_THUMB_SIZE.x, ANIMATION_STRIP_THUMB_SIZE.y, Image.INTERPOLATE_LANCZOS)
+			var frame_x := margin + marker_width + 4 + frame_index * ANIMATION_STRIP_THUMB_SIZE.x
+			canvas.blit_rect(frame, Rect2i(Vector2i.ZERO, ANIMATION_STRIP_THUMB_SIZE), Vector2i(frame_x, row_y))
+		loaded_strips += 1
+	var dir_path := ProjectSettings.globalize_path("res://artifacts/qa")
+	var output_path := dir_path.path_join(file_name)
+	var save_error := canvas.save_png(output_path)
+	_smoke_assert(save_error == OK, "animation strip QA should save %s" % file_name)
+	_smoke_assert(loaded_strips == strip_paths.size(), "animation strip QA should place every requested strip into %s" % file_name)
+	_smoke_assert(detailed_strips == strip_paths.size(), "animation strip QA should find limb, boot, hand, and weapon detail in every strip for %s (%d/%d detailed; missing=%s)" % [file_name, detailed_strips, strip_paths.size(), ", ".join(missing_detail_paths)])
+	_smoke_assert(moving_strips == strip_paths.size(), "animation strip QA should find visible frame-to-frame motion in every strip for %s (%d/%d moving; missing=%s)" % [file_name, moving_strips, strip_paths.size(), ", ".join(missing_motion_paths)])
+	_smoke_assert(_animation_strip_review_has_content(canvas), "animation strip QA review %s should show visible sprite frames" % file_name)
+	return output_path
+
+func _draw_animation_strip_row_marker(canvas: Image, start_x: int, start_y: int, width: int, height: int, color: Color) -> void:
+	for y in range(start_y, start_y + height):
+		for x in range(start_x, start_x + width):
+			canvas.set_pixel(x, y, color)
+
+func _animation_strip_review_has_content(image: Image) -> bool:
+	var width := image.get_width()
+	var height := image.get_height()
+	if width <= 0 or height <= 0:
+		return false
+	var non_background_hits := 0
+	var alpha_hits := 0
+	var step_x := maxi(1, width / 96)
+	var step_y := maxi(1, height / 96)
+	for y in range(0, height, step_y):
+		for x in range(0, width, step_x):
+			var color := image.get_pixel(x, y)
+			if color.a > 0.05:
+				alpha_hits += 1
+			if color.a > 0.05 and (color.r > 0.12 or color.g > 0.1 or color.b > 0.08):
+				non_background_hits += 1
+	return alpha_hits > 64 and non_background_hits > 16
+
+func _animation_strip_has_limb_weapon_detail(strip: Image) -> bool:
+	var width := strip.get_width()
+	var height := strip.get_height()
+	if width <= 0 or height <= 0:
+		return false
+	var skin_hits := 0
+	var metal_hits := 0
+	var dark_hits := 0
+	var clothing_hits := 0
+	var step_x := maxi(1, width / 160)
+	var step_y := maxi(1, height / 48)
+	for y in range(0, height, step_y):
+		for x in range(0, width, step_x):
+			var color := strip.get_pixel(x, y)
+			if color.a <= 0.08:
+				continue
+			if color.r > 0.5 and color.g > 0.33 and color.b > 0.17 and color.r > color.b + 0.12:
+				skin_hits += 1
+			if color.r > 0.48 and color.g > 0.26 and color.b < 0.24 and color.r > color.b + 0.22:
+				metal_hits += 1
+			if _visual_qa_luminance(color) < 0.15:
+				dark_hits += 1
+			if (
+				(color.b > color.r + 0.02 and color.r < 0.42 and color.g < 0.52)
+				or (color.r > 0.36 and color.g < 0.34 and color.b < 0.28 and color.r > color.g + 0.06)
+				or (color.r > 0.24 and color.g > 0.14 and color.b < 0.18 and color.r > color.b + 0.08)
+			):
+				clothing_hits += 1
+	return skin_hits >= 2 and metal_hits >= 2 and dark_hits >= 8 and clothing_hits >= 10
+
+func _animation_strip_has_frame_motion(strip: Image) -> bool:
+	var width := strip.get_width()
+	var height := strip.get_height()
+	if width <= 0 or height <= 0 or width % ANIMATION_STRIP_FRAME_COUNT != 0:
+		return false
+	var frame_width := width / ANIMATION_STRIP_FRAME_COUNT
+	var step_x := maxi(1, frame_width / 40)
+	var step_y := maxi(1, height / 48)
+	var moving_pairs := 0
+	for frame_index in range(ANIMATION_STRIP_FRAME_COUNT - 1):
+		var samples := 0
+		var total_delta := 0.0
+		var strong_delta_hits := 0
+		for y in range(0, height, step_y):
+			for local_x in range(0, frame_width, step_x):
+				var a := strip.get_pixel(frame_index * frame_width + local_x, y)
+				var b := strip.get_pixel((frame_index + 1) * frame_width + local_x, y)
+				if a.a <= 0.04 and b.a <= 0.04:
+					continue
+				var delta := absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) + absf(a.a - b.a)
+				total_delta += delta
+				if delta > 0.08:
+					strong_delta_hits += 1
+				samples += 1
+		if samples <= 0:
+			continue
+		var average_delta := total_delta / float(samples)
+		if average_delta > 0.012 and strong_delta_hits >= 12:
+			moving_pairs += 1
+	return moving_pairs >= 3
 
 func _run_visual_qa() -> void:
 	_smoke_test_active = true
 	_smoke_failures.clear()
 	_visual_qa_paths.clear()
 	_prepare_visual_qa_output_dir()
-	print("DUST_VISUAL_QA: starting first-wave, reload-ready glint, rifleman crossfire, duelist tell, Rail Yard, Dust Chapel brute tells, Mercy Vale, Gold Rush, Hunter lunge, June Blackglass, finale, extraction, and information menu screenshot pass")
+	print("DUST_VISUAL_QA: starting first-wave, reload-ready glint, runtime animation showcase, runtime gait contact pair, rifleman crossfire, duelist tell, Rail Yard, Dust Chapel brute tells, Mercy Vale, Gold Rush, Hunter lunge, June Blackglass, finale, extraction, and information menu screenshot pass")
 	menu_open = false
 	hud.hide_main_menu()
 	_start_run()
@@ -777,6 +1250,26 @@ func _run_visual_qa() -> void:
 	_smoke_assert(reload_glints_before < 0 or int(vfx_layer.get_reload_ready_glint_total_count()) > reload_glints_before, "visual QA reload-ready staging should fire the cylinder-ready glint")
 	await _smoke_wait_frames(2)
 	await _visual_qa_capture("01_cylinder_ready_glint.png")
+
+	_smoke_clear_wave()
+	_smoke_assert(_visual_qa_stage_runtime_animation_showcase(), "visual QA should stage a runtime player and enemy animation showcase")
+	hud.hide_transient_overlays()
+	var hud_was_visible: bool = hud.visible
+	hud.visible = false
+	await get_tree().process_frame
+	await _visual_qa_capture("12_runtime_animation_showcase.png")
+	hud.visible = hud_was_visible
+	_smoke_clear_wave()
+	_smoke_assert(_visual_qa_stage_runtime_animation_showcase(false), "visual QA should stage a runtime carried-weapon gait contact showcase")
+	hud.hide_transient_overlays()
+	hud_was_visible = hud.visible
+	hud.visible = false
+	await _smoke_wait_frames(10)
+	await _visual_qa_capture("14_runtime_gait_contact_shift.png")
+	await _smoke_wait_frames(10)
+	await _visual_qa_capture("15_runtime_gait_contact_shift_late.png")
+	_smoke_assert(_visual_qa_runtime_gait_contact_pair_has_motion_delta(), "visual QA gait contact pair should show visible runtime movement between carried-weapon frames")
+	hud.visible = hud_was_visible
 
 	await _smoke_start_wave(2)
 	_smoke_assert_wave_basics(2)
@@ -958,27 +1451,12 @@ func _run_performance_test() -> void:
 			(enemy as Node2D).global_position += Vector2(420.0, 220.0)
 	_request_arena_visual_redraw(true)
 	_request_dynamic_arena_overlay_redraw(true)
-	await _smoke_wait_frames(10)
-	var samples := 0
-	var fps_sum := 0.0
-	var min_fps := INF
-	var worst_frame_ms := 0.0
-	var sample_start_usec := Time.get_ticks_usec()
-	for frame_index in range(180):
-		var frame_start_usec := Time.get_ticks_usec()
-		await get_tree().process_frame
-		var frame_ms := float(Time.get_ticks_usec() - frame_start_usec) / 1000.0
-		worst_frame_ms = maxf(worst_frame_ms, frame_ms)
-		if frame_index >= 20:
-			var fps := 1000.0 / maxf(0.001, frame_ms)
-			if fps > 0.0:
-				min_fps = minf(min_fps, fps)
-				fps_sum += fps
-				samples += 1
-	var elapsed_ms := float(Time.get_ticks_usec() - sample_start_usec) / 1000.0
-	var avg_fps := fps_sum / maxf(1.0, float(samples))
-	if samples == 0:
-		min_fps = 0.0
+	var perf_result: Dictionary = await _sample_perf_window("wave_8_combat", 20, 160)
+	var samples := int(perf_result["samples"])
+	var avg_fps := float(perf_result["avg_fps"])
+	var min_fps := float(perf_result["min_fps"])
+	var worst_frame_ms := float(perf_result["worst_frame_ms"])
+	var elapsed_ms := float(perf_result["elapsed_ms"])
 	_smoke_assert(_get_performance_sample_version() == PERFORMANCE_SAMPLE_VERSION, "performance sampler should expose its version for progress tracking")
 	_smoke_assert(avg_fps >= 45.0, "performance sample average FPS should stay at or above 45, got %.1f" % avg_fps)
 	_smoke_assert(min_fps >= 30.0, "performance sample minimum FPS should stay at or above 30, got %.1f" % min_fps)
@@ -1000,6 +1478,80 @@ func _run_performance_test() -> void:
 			push_error("DUST_PERF: %s" % failure)
 		get_tree().quit(1)
 
+func _run_menu_performance_test() -> void:
+	_smoke_test_active = false
+	_smoke_failures.clear()
+	print("DUST_MENU_PERF: starting %s" % PERF_TELEMETRY_VERSION)
+	menu_open = true
+	if hud != null and is_instance_valid(hud):
+		hud.show_main_menu()
+	queue_redraw()
+	var perf_result: Dictionary = await _sample_perf_window("menu_idle", 30, 180)
+	var avg_fps := float(perf_result["avg_fps"])
+	var min_fps := float(perf_result["min_fps"])
+	var worst_frame_ms := float(perf_result["worst_frame_ms"])
+	_smoke_assert(avg_fps >= 55.0, "menu average FPS should stay at or above 55, got %.1f" % avg_fps)
+	_smoke_assert(min_fps >= 45.0, "menu minimum FPS should stay at or above 45, got %.1f" % min_fps)
+	_smoke_assert(worst_frame_ms <= 50.0, "menu worst frame should stay below 50ms, got %.1fms" % worst_frame_ms)
+	if _smoke_failures.is_empty():
+		print("DUST_MENU_PERF: PASS samples=%d avg_fps=%.1f min_fps=%.1f worst_frame_ms=%.1f elapsed_ms=%.1f" % [
+			int(perf_result["samples"]),
+			avg_fps,
+			min_fps,
+			worst_frame_ms,
+			float(perf_result["elapsed_ms"]),
+		])
+		get_tree().quit(0)
+	else:
+		for failure in _smoke_failures:
+			push_error("DUST_MENU_PERF: %s" % failure)
+		get_tree().quit(1)
+
+func _run_heavy_combat_performance_test() -> void:
+	_smoke_test_active = false
+	_smoke_failures.clear()
+	print("DUST_HEAVY_PERF: starting %s" % PERF_TELEMETRY_VERSION)
+	menu_open = false
+	hud.hide_main_menu()
+	_start_run()
+	opening_grace_timer = 12.0
+	wave_break_timer = 0.0
+	await _smoke_start_wave(10)
+	if player != null and is_instance_valid(player) and not vault_data.is_empty():
+		player.global_position = (vault_data["arena"] as Rect2).get_center()
+		player.velocity = Vector2.ZERO
+		player.health = player.max_health
+		player.apply_dust_veil(12.0)
+	for enemy in enemies:
+		if is_instance_valid(enemy) and enemy is Node2D:
+			var enemy_node := enemy as Node2D
+			enemy_node.global_position = player.global_position + Vector2(randf_range(-360.0, 360.0), randf_range(-260.0, 260.0))
+			enemy_node.queue_redraw()
+	for i in range(8):
+		vfx_layer.burst(player.global_position + Vector2(randf_range(-220.0, 220.0), randf_range(-160.0, 160.0)), Color(0.86, 0.36, 0.1), 46.0)
+	_request_arena_visual_redraw(true)
+	_request_dynamic_arena_overlay_redraw(true)
+	var perf_result: Dictionary = await _sample_perf_window("wave_10_heavy_combat", 20, 180)
+	var avg_fps := float(perf_result["avg_fps"])
+	var min_fps := float(perf_result["min_fps"])
+	var worst_frame_ms := float(perf_result["worst_frame_ms"])
+	_smoke_assert(avg_fps >= 45.0, "heavy combat average FPS should stay at or above 45, got %.1f" % avg_fps)
+	_smoke_assert(min_fps >= 30.0, "heavy combat minimum FPS should stay at or above 30, got %.1f" % min_fps)
+	_smoke_assert(worst_frame_ms <= 80.0, "heavy combat worst frame should stay below 80ms, got %.1fms" % worst_frame_ms)
+	if _smoke_failures.is_empty():
+		print("DUST_HEAVY_PERF: PASS samples=%d avg_fps=%.1f min_fps=%.1f worst_frame_ms=%.1f elapsed_ms=%.1f" % [
+			int(perf_result["samples"]),
+			avg_fps,
+			min_fps,
+			worst_frame_ms,
+			float(perf_result["elapsed_ms"]),
+		])
+		get_tree().quit(0)
+	else:
+		for failure in _smoke_failures:
+			push_error("DUST_HEAVY_PERF: %s" % failure)
+		get_tree().quit(1)
+
 func _visual_qa_clear_staged_result_overlay() -> void:
 	run_complete = false
 	if player != null and is_instance_valid(player):
@@ -1011,11 +1563,19 @@ func _run_smoke_test() -> void:
 	_smoke_test_active = true
 	_smoke_failures.clear()
 	print("DUST_SMOKE: starting playable run smoke test")
+	_smoke_assert_main_menu_visual_upgrade()
+	_smoke_assert_upgrade_system()
 	menu_open = false
 	_start_run()
+	await get_tree().process_frame
+	_smoke_assert_main_menu_memory_release()
+	hud.show_main_menu()
+	_smoke_assert_main_menu_visual_upgrade()
+	hud.hide_main_menu()
+	await get_tree().process_frame
+	_smoke_assert_main_menu_memory_release()
 	opening_grace_timer = 0.0
 	wave_break_timer = 0.0
-	_smoke_assert_main_menu_visual_upgrade()
 	_smoke_assert_town_square_business_roster()
 	_smoke_assert_unlock_toast_visual_upgrade()
 
@@ -1203,14 +1763,16 @@ func _smoke_assert_main_menu_visual_upgrade() -> void:
 	if hud == null or not is_instance_valid(hud):
 		_smoke_assert(false, "main menu visual smoke needs HUD")
 		return
+	if hud.has_method("get_main_menu_loaded"):
+		_smoke_assert(bool(hud.get_main_menu_loaded()), "main menu should be loaded while menu visuals are being inspected")
 	if hud.has_method("get_main_menu_backdrop_class_name"):
 		_smoke_assert(str(hud.get_main_menu_backdrop_class_name()) == "MenuBackdrop", "main menu should use the custom western backdrop instead of a flat color panel")
 	if hud.has_method("get_main_menu_backdrop_visual_version"):
-		_smoke_assert(str(hud.get_main_menu_backdrop_visual_version()) == "menu_backdrop_showdown_street_life_depth_v6", "main menu backdrop should use the showdown street-depth, street-life, hanging sign, and sun-shaft composition pass")
+		_smoke_assert(str(hud.get_main_menu_backdrop_visual_version()) == "menu_backdrop_static_low_batch_v1", "main menu backdrop should use the low-batch western street composition pass")
 	if hud.has_method("get_main_menu_town_square_cue_count"):
-		_smoke_assert(int(hud.get_main_menu_town_square_cue_count()) >= 74, "main menu backdrop should expose storefronts, varied rooflines, business cues, hitching rails, lantern glows, wagon and stagecoach silhouettes, horse tethers, wanted board, trough, bottles, street ruts, spur marks, porch rails, sun shafts, and brass title-plaque cues")
+		_smoke_assert(int(hud.get_main_menu_town_square_cue_count()) >= 32, "main menu backdrop should expose storefronts, rooflines, business cues, lanterns, street ruts, porch rails, sun shafts, and brass title-plaque cues without the high-batch idle detail pass")
 	if hud.has_method("get_main_menu_title_plaque_marker_count"):
-		_smoke_assert(int(hud.get_main_menu_title_plaque_marker_count()) >= 28, "main menu title plaque should expose chains, rivets, brass rails, plank stripes, side plates, marshal stars, center plate, shadow, sun glints, bottom notches, pin lights, and hanging-sign hardware markers")
+		_smoke_assert(int(hud.get_main_menu_title_plaque_marker_count()) >= 14, "main menu title plaque should expose chains, rivets, brass rails, side plates, marshal stars, center plate, shadow, and hanging-sign hardware markers")
 	if hud.has_method("get_main_menu_responsive_layout_version"):
 		_smoke_assert(str(hud.get_main_menu_responsive_layout_version()) == "menu_responsive_loadout_spacing_v1", "main menu should use responsive spacing for narrow browser viewports")
 	if hud.has_method("get_main_menu_responsive_widths_valid"):
@@ -1228,9 +1790,9 @@ func _smoke_assert_main_menu_visual_upgrade() -> void:
 	if hud.has_method("get_info_card_visual_version"):
 		_smoke_assert(str(hud.get_info_card_visual_version()) == "info_card_weathered_ledger_v3", "overview and information cards should use the premium weathered ledger readability pass")
 	if hud.has_method("get_visible_info_card_count"):
-		_smoke_assert(int(hud.get_visible_info_card_count()) >= 4, "main menu overview should render stamped ledger cards")
+		_smoke_assert(int(hud.get_visible_info_card_count()) >= 2, "main menu overview should render the optimized stamped ledger summary cards")
 	if hud.has_method("get_info_card_detail_marker_count"):
-		_smoke_assert(int(hud.get_info_card_detail_marker_count()) >= 72, "main menu info cards should expose brass rails, ticks, side rule marks, rivets, and stamped ledger markers")
+		_smoke_assert(int(hud.get_info_card_detail_marker_count()) >= 36, "main menu info cards should expose brass rails, ticks, side rule marks, rivets, and stamped ledger markers without the four-card idle layout")
 	if hud.has_method("get_quest_card_visual_version"):
 		_smoke_assert(str(hud.get_quest_card_visual_version()) == "quest_card_bounty_stamp_v2", "quest cards should use bounty-stamped western ledger styling")
 	if hud.has_method("get_quest_card_count"):
@@ -1255,6 +1817,30 @@ func _smoke_assert_main_menu_visual_upgrade() -> void:
 		_smoke_assert(int(hud.get_loadout_card_style_count()) >= 12, "gun and ability loadout card buttons should keep custom normal/hover/pressed/disabled styles")
 	if hud.has_method("get_loadout_card_tactile_style_count"):
 		_smoke_assert(int(hud.get_loadout_card_tactile_style_count()) >= 12, "gun and ability loadout card buttons should include focus, pressed text, and stamped shadow tactile states")
+
+func _smoke_assert_upgrade_system() -> void:
+	_smoke_assert(UPGRADE_DEFINITIONS.size() == 15, "upgrade system should define exactly 15 permanent upgrades")
+	_refresh_upgrade_screen()
+	if hud.has_method("get_upgrade_card_count"):
+		_smoke_assert(int(hud.get_upgrade_card_count()) == 15, "upgrade menu should expose all 15 permanent upgrade cards")
+	var purchased_before: Array = save_system.data.get("purchased_upgrades", [])
+	var tokens_before := int(save_system.data.get("upgrade_tokens", 0))
+	_award_upgrade_tokens(3, "SMOKE TOKEN CLAIM")
+	var tokens_after_award := int(save_system.data.get("upgrade_tokens", 0))
+	_smoke_assert(tokens_after_award >= tokens_before + 3, "upgrade tokens should persist when awarded")
+	var target_upgrade := ""
+	for upgrade in UPGRADE_DEFINITIONS:
+		if not purchased_before.has(upgrade["id"]) and int(upgrade.get("cost", 1)) <= tokens_after_award:
+			target_upgrade = str(upgrade["id"])
+			break
+	if target_upgrade != "":
+		_on_upgrade_purchase_requested(target_upgrade)
+		var purchased_after: Array = save_system.data.get("purchased_upgrades", [])
+		_smoke_assert(purchased_after.has(target_upgrade), "upgrade purchase should persist the bought upgrade id")
+		_smoke_assert(int(save_system.data.get("upgrade_tokens", 0)) < tokens_after_award, "upgrade purchase should spend tokens")
+	var modifiers := _get_upgrade_modifiers()
+	_smoke_assert(modifiers.has("max_health_bonus") and modifiers.has("gun_damage") and modifiers.has("combo_timer_bonus"), "upgrade modifiers should cover survival, gun, and style passives")
+	_refresh_upgrade_screen()
 	if hud.has_method("get_skill_icon_visual_version"):
 		_smoke_assert(str(hud.get_skill_icon_visual_version()) == "skill_icon_brass_socket_cooldown_5step_v8", "compact in-run skill buttons should use the brass socket visual pass with 5-percent cooldown redraw buckets")
 	if hud.has_method("get_skill_icon_redraw_budget_version"):
@@ -1267,6 +1853,15 @@ func _smoke_assert_main_menu_visual_upgrade() -> void:
 		_smoke_assert(int(hud.get_skill_icon_count()) >= 4, "live HUD should render four compact skill buttons")
 	if hud.has_method("get_skill_icon_tactile_marker_count"):
 		_smoke_assert(int(hud.get_skill_icon_tactile_marker_count()) >= 72, "live HUD skill buttons should expose readable brass socket, cylinder, and cooldown markers without costly per-tick redraws")
+
+func _smoke_assert_main_menu_memory_release() -> void:
+	if hud == null or not is_instance_valid(hud):
+		_smoke_assert(false, "main menu memory smoke needs HUD")
+		return
+	if hud.has_method("get_main_menu_memory_mode_version"):
+		_smoke_assert(str(hud.get_main_menu_memory_mode_version()) == "main_menu_release_on_gameplay_v1", "main menu should use the release-on-gameplay memory mode")
+	if hud.has_method("get_main_menu_loaded"):
+		_smoke_assert(not bool(hud.get_main_menu_loaded()), "main menu nodes should be released from memory during gameplay instead of only hidden")
 
 func _smoke_assert_unlock_toast_visual_upgrade() -> void:
 	_smoke_assert(hud != null and is_instance_valid(hud), "unlock toast smoke needs HUD")
@@ -1295,7 +1890,34 @@ func _smoke_assert_enemy_silhouette_visual_upgrade() -> void:
 			checked += 1
 		_smoke_assert(enemy.has_method("get_enemy_grounded_sprite_visual_version"), "enemy sprites should expose the grounded sprite presentation hook")
 		if enemy.has_method("get_enemy_grounded_sprite_visual_version"):
-			_smoke_assert(str(enemy.get_enemy_grounded_sprite_visual_version()) == "enemy_directional_safe_crop_motion_redraw_budget_8fps_v10", "enemy sprites should use the direction-aware safe-cropped whole-body motion pass with active and idle budgeted redraws")
+			_smoke_assert(str(enemy.get_enemy_grounded_sprite_visual_version()) == "enemy_directional_human_motion_weapon_draw_v1", "enemy sprites should use direction-aware whole-body sprites with human gait, arms, and weapon draw overlays")
+		_smoke_assert(enemy.has_method("get_enemy_human_motion_visual_version"), "enemy sprites should expose the human-motion visual hook")
+		if enemy.has_method("get_enemy_human_motion_visual_version"):
+			_smoke_assert(str(enemy.get_enemy_human_motion_visual_version()) == "enemy_rusher_hunter_gait_weapon_anchor_strip_v21", "enemy sprites should animate authored gameplay-scale gait and baked weapon strip frames across all roles, with low-speed stepping, slow-chase facing, whole-body idle breathing, role-weighted idle sway, role-readable long guns, blade edges, muzzle glints, support hands, body-attached carried weapons, direction-aware baked boot contacts, arm swings, braced combat limbs, keyframed whole-body gait transforms, role-specific body lean, attack anticipation, lunge commitment, role-specific two-hand weapon grips, clean strip-backed overlay suppression, clearer hip-knee-boot leg chains, planted boot contacts, stronger weapon anchors, rifleman braced-march hands, shotgun brute wide heavy foot plants, urgent knife-rusher forward stabs, and lean hunter stalking blades")
+		_smoke_assert(enemy.has_method("get_enemy_human_motion_marker_count"), "enemy sprites should expose human-motion marker coverage")
+		if enemy.has_method("get_enemy_human_motion_marker_count"):
+			_smoke_assert(int(enemy.get_enemy_human_motion_marker_count()) >= 216, "enemy human-motion overlays should cover all-role gameplay-scale authored gait strips, baked weapon strips, low-speed stepping, slow-chase facing, compact texture budgets, whole-body idle breathing, role-weighted idle sway, idle compression, role-readable long guns, shotgun muzzles, blade edges, support-hand braces, body-attached carried weapons, direction-aware weapon anchoring, direction-aware boot contacts, baked arm swings, braced combat feet, support hands, keyframed contact holds, whole-body bob, lean, compression, four gait phases, planted boots, torso lean, shoulder/hip counter-motion, gait legs, hip-knee-boot chains, boot contact shadows, brass spur cues, arm swing, role accents, attack bracing, lunge commitment, long-gun support hands, blade guards, weapon draw markers, anchored weapon silhouettes, rifleman steady support hands, shotgun brute wide planted contacts, knife-rusher forward stab reach, hunter low stalking support hand, and strip-backed duplicate overlay suppression")
+		_smoke_assert(enemy.has_method("get_enemy_strip_overlay_mode_version"), "enemy sprites should expose the strip-backed overlay mode contract")
+		if enemy.has_method("get_enemy_strip_overlay_mode_version"):
+			_smoke_assert(str(enemy.get_enemy_strip_overlay_mode_version()) == "enemy_strip_backed_clean_overlay_suppression_v1", "enemy baked strip frames should not receive a second procedural limb and weapon overlay")
+		if enemy.has_method("get_enemy_gait_strip_visual_version"):
+			_smoke_assert(str(enemy.get_enemy_gait_strip_visual_version()) == "enemy_rusher_hunter_legible_gait_strip_v7", "sprite-backed enemies should expose generated gameplay-scale authored gait strips with role-specific rifleman bracing, brute foot plants, knife-rusher forward urgency, hunter stalking posture, clearer hip-knee-boot motion, and body-attached carried weapons")
+		if enemy.has_method("get_enemy_gait_strip_direction_count"):
+			_smoke_assert(int(enemy.get_enemy_gait_strip_direction_count()) >= 8, "sprite-backed enemies should load generated authored gait strips for all eight enemy directions")
+		if enemy.has_method("get_enemy_combat_strip_visual_version"):
+			_smoke_assert(str(enemy.get_enemy_combat_strip_visual_version()) == "enemy_gameplay_scaled_anchored_weapon_strip_v5", "sprite-backed enemies should expose generated gameplay-scale authored weapon strips with braced legs, support hands, and anchored directional weapon silhouettes")
+		if enemy.has_method("get_enemy_combat_strip_direction_count"):
+			_smoke_assert(int(enemy.get_enemy_combat_strip_direction_count()) >= 8, "sprite-backed enemies should load generated authored weapon strips for all eight enemy directions")
+		if enemy.has_method("get_enemy_animation_strip_budget_version"):
+			_smoke_assert(str(enemy.get_enemy_animation_strip_budget_version()) == "enemy_animation_strip_texture_budget_v1", "sprite-backed enemies should expose the animation strip texture budget contract")
+		if enemy.has_method("get_enemy_animation_texture_cache_version"):
+			_smoke_assert(str(enemy.get_enemy_animation_texture_cache_version()) == "enemy_animation_texture_archetype_cache_v1", "sprite-backed enemies should reuse loaded turnaround and animation strip textures by archetype to prevent spawn-time lag")
+		if enemy.has_method("get_enemy_animation_texture_cache_archetype_count"):
+			_smoke_assert(int(enemy.get_enemy_animation_texture_cache_archetype_count()) >= 1, "enemy animation texture cache should contain at least the spawned archetype")
+		if enemy.has_method("get_enemy_animation_strip_total_pixels"):
+			_smoke_assert(int(enemy.get_enemy_animation_strip_total_pixels()) <= 4500000, "sprite-backed enemy animation strips should stay within the compact gameplay-scale texture budget")
+		if enemy.has_method("get_enemy_animation_strip_max_height"):
+			_smoke_assert(int(enemy.get_enemy_animation_strip_max_height()) <= 150, "sprite-backed enemy animation strips should use compact gameplay-scale frame heights")
 		if enemy.has_method("get_enemy_motion_redraw_interval"):
 			_smoke_assert(float(enemy.get_enemy_motion_redraw_interval()) >= 1.0 / 8.5, "enemy sprite motion redraws should be capped near 8 FPS for browser frame stability")
 		if enemy.has_method("get_enemy_source_crop_visual_version"):
@@ -1329,11 +1951,34 @@ func _smoke_assert_player_hero_visual_upgrade() -> void:
 		_smoke_assert(str(player.get_player_hero_visual_version()) == "denim_brass_hero_whole_sprite_browser_safe_v12", "player should use the denim-and-brass full-sprite browser-safe visual pass")
 	_smoke_assert(player.has_method("get_player_grounded_sprite_visual_version"), "player should expose the grounded sprite presentation hook")
 	if player.has_method("get_player_grounded_sprite_visual_version"):
-		_smoke_assert(str(player.get_player_grounded_sprite_visual_version()) == "player_locked_whole_body_sprite_perf_v14", "player should use one locked whole-body gameplay sprite so walking and running never split between mismatched directional canvases")
+		_smoke_assert(str(player.get_player_grounded_sprite_visual_version()) == "player_directional_human_motion_weapon_draw_v1", "player should use direction-aware whole-body sprites with human gait, arms, and saber draw overlays")
+	_smoke_assert(player.has_method("get_player_human_motion_visual_version"), "player should expose the human-motion visual hook")
+	if player.has_method("get_player_human_motion_visual_version"):
+		_smoke_assert(str(player.get_player_human_motion_visual_version()) == "player_body_attached_carried_saber_gait_strip_v21", "player should animate authored gameplay-scale gait and baked saber strip frames, with low-speed stepping, slow-turn facing, whole-body idle breathing, subtle idle weight shift, a readable saber edge, clearer holster-to-guard hand travel, off-hand guard, hilt checkpoints, draw-path glints, body-attached carried saber frames, carried-saber holster tether, support-hand guard markers, tucked ready blade angle, direction-aware baked boot contacts, arm swings, braced combat limbs, keyframed whole-body gait transforms, planted contact holds, dash commitment, torso lean, shoulder/hip counter-motion, legs, arms, hip-knee-boot chains, boot contact shadows, idle breathing, two-hand saber draw, guard, slash follow-through, anchored saber silhouettes, and clean strip-backed overlay suppression on directional sprites")
+	_smoke_assert(player.has_method("get_player_human_motion_marker_count"), "player should expose human-motion marker coverage")
+	if player.has_method("get_player_human_motion_marker_count"):
+		_smoke_assert(int(player.get_player_human_motion_marker_count()) >= 200, "player human-motion overlay should cover gameplay-scale authored gait strips, readable baked saber strips, low-speed stepping, slow-turn facing, compact texture budgets, whole-body idle breathing, idle side-weight shift, idle compression, holster-to-draw hand travel, off-hand guard, hilt glint, draw anticipation ghost edge, holster scabbard, hilt checkpoints, guard hand path, blade draw ghost, body-attached carried saber frames, carried-saber holster tether, carried hand grip, guard hand marker, tucked ready angle, direction-aware saber anchoring, direction-aware boot contacts, baked arm swings, braced combat feet, support hands, keyframed contact holds, whole-body bob, lean, compression, four gait phases, planted boots, hip-knee-boot chains, boot contact shadows, brass spur cues, dash commitment, torso lean, shoulder/hip counter-motion, alternating boots, arm swing, idle breathing, holster, spur dust, two-hand saber draw, guard, hilt, anchored saber silhouettes, follow-through markers, and strip-backed duplicate overlay suppression")
+	_smoke_assert(player.has_method("get_player_strip_overlay_mode_version"), "player should expose the strip-backed overlay mode contract")
+	if player.has_method("get_player_strip_overlay_mode_version"):
+		_smoke_assert(str(player.get_player_strip_overlay_mode_version()) == "player_strip_backed_clean_overlay_suppression_v1", "player baked strip frames should not receive a second procedural limb and saber overlay")
+	if player.has_method("get_player_gait_strip_visual_version"):
+		_smoke_assert(str(player.get_player_gait_strip_visual_version()) == "player_body_attached_carried_saber_gait_strip_v5", "player should expose generated gameplay-scale directional authored gait strips with clearer hip-knee-boot motion, holster-tethered carried saber frames, support-hand guard markers, and body-attached carried weapon posture")
+	if player.has_method("get_player_gait_strip_direction_count"):
+		_smoke_assert(int(player.get_player_gait_strip_direction_count()) >= 13, "player should load generated authored gait strips for all thirteen cowgirl directions")
+	if player.has_method("get_player_combat_strip_visual_version"):
+		_smoke_assert(str(player.get_player_combat_strip_visual_version()) == "player_gameplay_scaled_anchored_saber_strip_v5", "player should expose generated gameplay-scale directional saber strips with braced legs, off-hand guard, and anchored baked saber silhouettes")
+	if player.has_method("get_player_combat_strip_direction_count"):
+		_smoke_assert(int(player.get_player_combat_strip_direction_count()) >= 13, "player should load generated authored saber strips for all thirteen cowgirl directions")
+	if player.has_method("get_player_animation_strip_budget_version"):
+		_smoke_assert(str(player.get_player_animation_strip_budget_version()) == "player_animation_strip_texture_budget_v1", "player should expose the animation strip texture budget contract")
+	if player.has_method("get_player_animation_strip_total_pixels"):
+		_smoke_assert(int(player.get_player_animation_strip_total_pixels()) <= 6500000, "player animation strips should stay within the compact gameplay-scale texture budget")
+	if player.has_method("get_player_animation_strip_max_height"):
+		_smoke_assert(int(player.get_player_animation_strip_max_height()) <= 150, "player animation strips should use compact gameplay-scale frame heights")
 	if player.has_method("get_player_motion_redraw_interval"):
 		_smoke_assert(float(player.get_player_motion_redraw_interval()) >= 0.12, "player sprite redraws should be capped near 8 FPS to prevent browser lag during walking and running")
 	if player.has_method("get_player_overlay_movement_gate_version"):
-		_smoke_assert(str(player.get_player_overlay_movement_gate_version()) == "player_whole_sprite_no_body_overlay_v3", "player body-attached overlays should stay off textured sprites so walking and running never appear split")
+		_smoke_assert(str(player.get_player_overlay_movement_gate_version()) == "player_sprite_human_motion_overlay_v1", "player body-attached overlays should carry clean human motion without splitting the textured sprite")
 	if player.has_method("get_player_safe_source_crop_visual_version"):
 		_smoke_assert(str(player.get_player_safe_source_crop_visual_version()) == "player_directional_uncropped_full_image_v4", "player directional sprites should draw the uncropped full image so walking and aiming never show detached body fragments")
 	if player.has_method("get_player_directional_source_crop_count"):
@@ -1828,8 +2473,165 @@ func _visual_qa_capture(file_name: String) -> void:
 		_smoke_assert(_visual_qa_image_has_dark_result_card(image), "visual QA extraction capture should show the dark result card")
 	if file_name == "11_information_hunter_card.png":
 		_smoke_assert(_visual_qa_image_has_information_hunter_card(image), "visual QA information capture should show rendered late-enemy cards with Hunter danger accent")
+	if file_name == "12_runtime_animation_showcase.png":
+		_smoke_assert(_visual_qa_image_has_runtime_animation_showcase(_visual_qa_saved_or_viewport_image(output_path, image)), "visual QA animation showcase should show staged player/enemy sprites with readable limbs and weapon draw highlights")
+	if file_name == "14_runtime_gait_contact_shift.png":
+		_smoke_assert(_visual_qa_image_has_runtime_animation_showcase(_visual_qa_saved_or_viewport_image(output_path, image)), "visual QA gait contact capture should show carried weapons, readable body colors, and shifted boot contacts")
+	if file_name == "15_runtime_gait_contact_shift_late.png":
+		_smoke_assert(_visual_qa_image_has_runtime_animation_showcase(_visual_qa_saved_or_viewport_image(output_path, image)), "visual QA late gait contact capture should show the same carried-weapon lineup after runtime gait frames advance")
 	if save_error == OK:
 		_visual_qa_paths.append(output_path)
+
+func _visual_qa_saved_or_viewport_image(output_path: String, fallback_image: Image) -> Image:
+	var saved_image := Image.load_from_file(output_path)
+	if saved_image != null and not saved_image.is_empty():
+		return saved_image
+	return fallback_image
+
+func _visual_qa_stage_runtime_animation_showcase(weapon_ready: bool = true) -> bool:
+	if player == null or not is_instance_valid(player) or vault_data.is_empty():
+		return false
+	_clear_payday_pickups_for_smoke()
+	arena_hazards.clear()
+	arena_cover_props.clear()
+	if vfx_layer != null and vfx_layer.has_method("clear_transient_effects"):
+		vfx_layer.clear_transient_effects()
+	var arena: Rect2 = vault_data["arena"]
+	var center := arena.get_center()
+	if camera != null:
+		camera.offset = Vector2.ZERO
+		camera.reset_smoothing()
+	player.global_position = center + Vector2(-300.0, 8.0)
+	player.velocity = Vector2(145.0, 0.0)
+	player.set("_dash_direction", Vector2.RIGHT)
+	if weapon_ready and player.has_method("force_quickdraw"):
+		player.force_quickdraw()
+	elif not weapon_ready:
+		player.set("_weapon_active_remaining", 0.0)
+		player.set("_weapon_recovery_remaining", 0.0)
+		player.set("_weapon_sheathe_delay_remaining", 0.0)
+	player.queue_redraw()
+
+	var staged := 0
+	var knife := _visual_qa_spawn_showcase_enemy(KnifeRusherScene, center + Vector2(-120.0, -104.0), {})
+	if knife != null:
+		knife.velocity = Vector2(155.0, 32.0)
+		knife.set("_swarm_warning_time", 0.12 if weapon_ready else 0.0)
+		knife.queue_redraw()
+		staged += 1
+	var rifle := _visual_qa_spawn_showcase_enemy(RiflemanScene, center + Vector2(28.0, -104.0), {})
+	if rifle != null:
+		rifle.velocity = Vector2(70.0, 0.0)
+		rifle.set("_charge_timer", 0.22 if weapon_ready else 0.0)
+		rifle.set("_fire_timer", 99.0 if not weapon_ready else 0.0)
+		rifle.set("_aim_angle", PI if weapon_ready else 0.0)
+		rifle.set("_shot_target", rifle.global_position + Vector2(-320.0, 0.0))
+		rifle.queue_redraw()
+		staged += 1
+	var brute := _visual_qa_spawn_showcase_enemy(ShotgunBruteScene, center + Vector2(166.0, -100.0), {})
+	if brute != null:
+		brute.velocity = Vector2(-78.0, 0.0)
+		brute.set("_windup_timer", 0.18 if weapon_ready else 0.0)
+		brute.set("_fire_timer", 99.0 if not weapon_ready else 0.0)
+		brute.set("_aim_direction", Vector2.LEFT)
+		brute.queue_redraw()
+		staged += 1
+	var hunter := _visual_qa_spawn_showcase_enemy(HunterScene, center + Vector2(-58.0, 116.0), {})
+	if hunter != null:
+		hunter.velocity = Vector2(210.0, -8.0)
+		hunter.set("_windup_timer", 0.16 if weapon_ready else 0.0)
+		hunter.set("_lunge_cooldown", 99.0 if not weapon_ready else 0.0)
+		hunter.set("_lunge_direction", Vector2.RIGHT)
+		hunter.queue_redraw()
+		staged += 1
+	var duelist_profile := DUELIST_ROSTER[0].duplicate()
+	var duelist := _visual_qa_spawn_showcase_enemy(DuelistScene, center + Vector2(142.0, 116.0), duelist_profile)
+	if duelist != null:
+		duelist.velocity = Vector2(-96.0, 0.0)
+		duelist.set("_draw_timer", 0.12 if weapon_ready else 0.0)
+		duelist.set("_attack_cooldown", 99.0 if not weapon_ready else 0.0)
+		duelist.set("_duel_direction", Vector2.LEFT)
+		duelist.queue_redraw()
+		staged += 1
+	_request_arena_visual_redraw(true)
+	return staged >= 5
+
+func _visual_qa_spawn_showcase_enemy(enemy_script, position: Vector2, profile: Dictionary) -> Node2D:
+	var before := enemies.size()
+	_spawn_enemy(enemy_script, before, 6, profile)
+	if enemies.size() <= before:
+		return null
+	var enemy: Node = enemies[enemies.size() - 1]
+	if not (enemy is Node2D):
+		return null
+	var enemy_node := enemy as Node2D
+	enemy_node.global_position = position
+	return enemy_node
+
+func _visual_qa_image_has_runtime_animation_showcase(image: Image) -> bool:
+	var width := image.get_width()
+	var height := image.get_height()
+	if width <= 0 or height <= 0:
+		return false
+	var sample_rect := Rect2i(
+		int(float(width) * 0.24),
+		int(float(height) * 0.22),
+		int(float(width) * 0.74),
+		int(float(height) * 0.55)
+	)
+	var denim_ratio := _visual_qa_color_ratio(image, sample_rect, func(color: Color) -> bool:
+		return color.b > color.r + 0.035 and color.b > color.g - 0.03 and color.r < 0.42 and color.g < 0.52
+	)
+	var brass_ratio := _visual_qa_color_ratio(image, sample_rect, func(color: Color) -> bool:
+		return color.r > 0.52 and color.g > 0.28 and color.b < 0.25 and color.r > color.b + 0.24
+	)
+	var bone_ratio := _visual_qa_color_ratio(image, sample_rect, func(color: Color) -> bool:
+		return color.r > 0.62 and color.g > 0.5 and color.b > 0.28 and color.r > color.b + 0.16
+	)
+	var enemy_accent_ratio := _visual_qa_color_ratio(image, sample_rect, func(color: Color) -> bool:
+		return color.r > 0.45 and color.g < 0.36 and color.b < 0.28 and color.r > color.g + 0.1
+	)
+	var dark_contact_ratio := _visual_qa_color_ratio(image, sample_rect, func(color: Color) -> bool:
+		return _visual_qa_luminance(color) < 0.18 and color.a > 0.5
+	)
+	var contrast := _visual_qa_luminance_stddev(image, sample_rect)
+	return denim_ratio > 0.0003 and brass_ratio > 0.0015 and bone_ratio > 0.00045 and enemy_accent_ratio > 0.001 and dark_contact_ratio > 0.0025 and contrast > 0.03
+
+func _visual_qa_runtime_gait_contact_pair_has_motion_delta() -> bool:
+	var early_path := ProjectSettings.globalize_path("res://artifacts/qa/14_runtime_gait_contact_shift.png")
+	var late_path := ProjectSettings.globalize_path("res://artifacts/qa/15_runtime_gait_contact_shift_late.png")
+	var early := Image.load_from_file(early_path)
+	var late := Image.load_from_file(late_path)
+	if early == null or late == null or early.is_empty() or late.is_empty():
+		return false
+	if early.get_size() != late.get_size():
+		return false
+	var width := early.get_width()
+	var height := early.get_height()
+	var sample_rect := Rect2i(
+		int(float(width) * 0.24),
+		int(float(height) * 0.22),
+		int(float(width) * 0.74),
+		int(float(height) * 0.55)
+	)
+	var step_x := maxi(1, sample_rect.size.x / 48)
+	var step_y := maxi(1, sample_rect.size.y / 32)
+	var samples := 0
+	var total_delta := 0.0
+	var strong_motion_pixels := 0
+	for y in range(sample_rect.position.y, sample_rect.position.y + sample_rect.size.y, step_y):
+		for x in range(sample_rect.position.x, sample_rect.position.x + sample_rect.size.x, step_x):
+			var early_color := early.get_pixel(x, y)
+			var late_color := late.get_pixel(x, y)
+			var delta := absf(early_color.r - late_color.r) + absf(early_color.g - late_color.g) + absf(early_color.b - late_color.b)
+			total_delta += delta
+			if delta > 0.08:
+				strong_motion_pixels += 1
+			samples += 1
+	if samples <= 0:
+		return false
+	var average_delta := total_delta / float(samples)
+	return average_delta > 0.006 and strong_motion_pixels >= 18
 
 func _visual_qa_image_has_variance(image: Image) -> bool:
 	var width := image.get_width()
@@ -6348,8 +7150,10 @@ func _draw_blackglass_killbox_cue(arena: Rect2, pulse: float) -> void:
 	])
 	draw_polyline(diamond, Color(0.95, 0.62, 0.28, 0.14 + pulse * 0.09), 5.0)
 	draw_polyline(diamond, Color(0.09, 0.018, 0.014, 0.2), 2.0)
-	draw_line(center + Vector2(-inner.size.x * 0.42, 0.0), center + Vector2(inner.size.x * 0.42, 0.0), Color(0.86, 0.1, 0.14, 0.12 + pulse * 0.08), 8.0)
-	draw_line(center + Vector2(0.0, -inner.size.y * 0.4), center + Vector2(0.0, inner.size.y * 0.4), Color(0.86, 0.1, 0.14, 0.1 + pulse * 0.075), 8.0)
+	draw_line(center + Vector2(-inner.size.x * 0.42, 0.0), center + Vector2(inner.size.x * 0.42, 0.0), Color(0.9, 0.08, 0.13, 0.24 + pulse * 0.16), 12.0)
+	draw_line(center + Vector2(0.0, -inner.size.y * 0.4), center + Vector2(0.0, inner.size.y * 0.4), Color(0.9, 0.08, 0.13, 0.22 + pulse * 0.15), 12.0)
+	draw_line(center + Vector2(-inner.size.x * 0.44, 18.0), center + Vector2(inner.size.x * 0.44, 18.0), Color(0.07, 0.014, 0.012, 0.24), 5.0)
+	draw_line(center + Vector2(18.0, -inner.size.y * 0.42), center + Vector2(18.0, inner.size.y * 0.42), Color(0.07, 0.014, 0.012, 0.22), 5.0)
 	for i in range(4):
 		var angle := TAU * float(i) / 4.0 + PI * 0.25
 		var corner := center + Vector2(cos(angle) * inner.size.x * 0.45, sin(angle) * inner.size.y * 0.42)
@@ -6362,8 +7166,8 @@ func _draw_blackglass_killbox_cue(arena: Rect2, pulse: float) -> void:
 		var t := float(i) / 5.0
 		var y := lerpf(inner.position.y + 40.0, inner.end.y - 40.0, t)
 		var slant := sin(_hazard_anim_time * 1.4 + float(i)) * 34.0
-		draw_line(Vector2(inner.position.x + 32.0, y), Vector2(inner.end.x - 32.0, y + slant), Color(0.04, 0.012, 0.012, 0.14), 3.0)
-		draw_line(Vector2(inner.position.x + 32.0, y - 9.0), Vector2(inner.end.x - 32.0, y + slant - 9.0), Color(0.92, 0.22, 0.22, 0.055 + pulse * 0.035), 2.0)
+		draw_line(Vector2(inner.position.x + 32.0, y), Vector2(inner.end.x - 32.0, y + slant), Color(0.04, 0.012, 0.012, 0.24), 4.4)
+		draw_line(Vector2(inner.position.x + 32.0, y - 9.0), Vector2(inner.end.x - 32.0, y + slant - 9.0), Color(0.92, 0.18, 0.2, 0.105 + pulse * 0.06), 3.0)
 
 func _draw_last_high_noon_effects(arena: Rect2) -> void:
 	var pulse := 0.5 + sin(_hazard_anim_time * 6.0) * 0.5
@@ -6726,6 +7530,10 @@ func _get_vault_bounds() -> Rect2:
 	return vault_data["arena"]
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F3:
+		_set_perf_overlay_enabled(not _perf_overlay_enabled)
+		get_viewport().set_input_as_handled()
+		return
 	if menu_open:
 		return
 	if run_complete:
@@ -6812,6 +7620,7 @@ func _start_run() -> void:
 	_reset_training_tracker()
 	director.reset()
 	program_system.reset()
+	_apply_upgrade_modifiers_to_systems()
 	vfx_layer.clear_blood_stains()
 
 	for child in enemy_root.get_children():
@@ -6831,6 +7640,8 @@ func _start_run() -> void:
 	player.position = vault_data["spawn"]
 	player.set_arena_bounds(vault_data["arena"])
 	player.apply_weapon_profile(equipped_blade)
+	player.set_upgrade_modifiers(_get_upgrade_modifiers())
+	opening_grace_timer += float(_get_upgrade_effect_value("opening_grace_bonus", 0.0))
 	player.apply_dust_veil(opening_grace_timer)
 	player.dash_used.connect(_on_player_dash)
 	player.weapon_slashed.connect(_on_player_weapon_slashed)
@@ -6934,6 +7745,7 @@ func _grant_wave_clear_reward(wave: int) -> void:
 		return
 	_rewarded_waves.append(wave)
 	var credit_bonus: int = 18 + wave * 7
+	credit_bonus = int(round(float(credit_bonus) * float(_get_upgrade_effect_value("payday_credit_bonus", 1.0))))
 	var ammo_refill: int = 2 if wave < 3 else 1
 	_play_wave_clear_feedback(wave)
 	_spawn_payday_pickup(wave, credit_bonus, ammo_refill)
@@ -7035,6 +7847,7 @@ func _spawn_enemy(enemy_script, index: int, total: int, profile: Dictionary = {}
 	if enemy_script == DuelistScene:
 		enemy.set_meta("boss", true)
 		enemy.set_meta("duelist_name", profile.get("name", "DUELIST"))
+		enemy.set_meta("duelist_id", profile.get("id", "duelist"))
 	enemies.append(enemy)
 
 func _get_duelist_profile(wave: int) -> Dictionary:
@@ -7343,7 +8156,7 @@ func _award_style_points(base_points: int, reason: String = "") -> void:
 		_last_second_chain_bonus_count += 1
 	combo_count += 1
 	best_combo = maxi(best_combo, combo_count)
-	combo_timer = 4.0
+	combo_timer = 4.0 + float(_get_upgrade_effect_value("combo_timer_bonus", 0.0))
 	var combo_multiplier: float = 1.0 + minf(2.5, float(combo_count - 1) * 0.16)
 	var earned := int(round(float(base_points) * combo_multiplier))
 	earned += last_second_bonus
@@ -7608,6 +8421,11 @@ func _on_enemy_destroyed(enemy) -> void:
 		if not defeated_duelist_names.has(reason):
 			defeated_duelist_names.append(reason)
 		_record_quest_progress("boss", 1)
+		var boss_id := str(enemy.get_meta("duelist_id", reason.to_lower().replace(" ", "_")))
+		var boss_tokens := 1
+		if save_system.claim_boss_token(boss_id):
+			boss_tokens += 1
+		_award_upgrade_tokens(boss_tokens, "%s DEFEATED" % reason)
 		var reward: String = program_system.award_boss_reward()
 		var blade_unlocked := false
 		if not unlocked_blades.has("black_sash_saber"):
@@ -7681,6 +8499,9 @@ func _try_complete_quest(quest: Dictionary, progress: int) -> void:
 	if completed.has(quest["id"]) or progress < int(quest["target"]):
 		return
 	save_system.complete_quest(quest["id"])
+	var token_reward := int(quest.get("token_reward", 1))
+	if token_reward > 0:
+		_award_upgrade_tokens(token_reward, "%s COMPLETE" % str(quest["name"]))
 	var reward_id: String = quest["reward_id"]
 	var reward_name: String = quest["reward"]
 	if quest["reward_type"] == "ability":
@@ -7715,6 +8536,94 @@ func _refresh_quest_screen() -> void:
 		entry["complete"] = completed.has(quest["id"])
 		quests.append(entry)
 	hud.set_quest_data(quests)
+	_refresh_upgrade_screen()
+
+func _award_upgrade_tokens(amount: int, source: String) -> void:
+	if amount <= 0:
+		return
+	var total: int = save_system.add_upgrade_tokens(amount)
+	_refresh_upgrade_screen()
+	if hud != null and is_instance_valid(hud):
+		hud.show_unlock("+%d UPGRADE TOKEN%s\n%s\nTOKENS BANKED %d" % [amount, "" if amount == 1 else "S", source, total])
+
+func _on_upgrade_purchase_requested(upgrade_id: String) -> void:
+	var upgrade := _get_upgrade_definition(upgrade_id)
+	if upgrade.is_empty():
+		return
+	if _has_upgrade(upgrade_id):
+		hud.show_unlock("%s ALREADY OWNED" % str(upgrade.get("name", "UPGRADE")).to_upper())
+		return
+	var cost := int(upgrade.get("cost", 1))
+	if not save_system.purchase_upgrade(upgrade_id, cost):
+		hud.show_unlock("NEED %d TOKENS\n%s" % [cost, str(upgrade.get("name", "UPGRADE")).to_upper()])
+		return
+	_apply_upgrade_modifiers_to_systems()
+	_refresh_upgrade_screen()
+	hud.show_unlock("%s BOUGHT\nPERMANENT UPGRADE ACTIVE" % str(upgrade.get("name", "UPGRADE")).to_upper())
+
+func _refresh_upgrade_screen() -> void:
+	if hud == null or not is_instance_valid(hud) or not hud.has_method("set_upgrade_data"):
+		return
+	var purchased: Array = save_system.data.get("purchased_upgrades", [])
+	var upgrades: Array[Dictionary] = []
+	for upgrade in UPGRADE_DEFINITIONS:
+		var entry: Dictionary = upgrade.duplicate(true)
+		entry["owned"] = purchased.has(upgrade["id"])
+		upgrades.append(entry)
+	hud.set_upgrade_data(upgrades, int(save_system.data.get("upgrade_tokens", 0)))
+
+func _apply_upgrade_modifiers_to_systems() -> void:
+	var modifiers := _get_upgrade_modifiers()
+	if program_system != null and is_instance_valid(program_system) and program_system.has_method("set_upgrade_modifiers"):
+		program_system.set_upgrade_modifiers(modifiers)
+	if player != null and is_instance_valid(player) and player.has_method("set_upgrade_modifiers"):
+		player.set_upgrade_modifiers(modifiers)
+
+func _get_upgrade_modifiers() -> Dictionary:
+	var modifiers := {
+		"max_health_bonus": 0.0,
+		"opening_grace_bonus": 0.0,
+		"move_speed": 1.0,
+		"acceleration": 1.0,
+		"dash_speed": 1.0,
+		"dash_duration": 1.0,
+		"dash_cooldown": 1.0,
+		"blade_damage": 1.0,
+		"blade_range": 1.0,
+		"parry_time": 1.0,
+		"gun_damage": 1.0,
+		"reload_speed": 1.0,
+		"ammo_capacity_bonus": 0,
+		"ability_cooldown": 1.0,
+		"veil_duration": 1.0,
+		"payday_credit_bonus": 1.0,
+		"combo_timer_bonus": 0.0,
+	}
+	for upgrade in UPGRADE_DEFINITIONS:
+		if not _has_upgrade(str(upgrade["id"])):
+			continue
+		var effect := str(upgrade.get("effect", ""))
+		var value = upgrade.get("value", 0.0)
+		if ["move_speed", "acceleration", "dash_speed", "dash_duration", "dash_cooldown", "blade_damage", "blade_range", "parry_time", "gun_damage", "reload_speed", "ability_cooldown", "veil_duration", "payday_credit_bonus"].has(effect):
+			modifiers[effect] = float(modifiers.get(effect, 1.0)) * float(value)
+		elif effect == "ammo_capacity_bonus":
+			modifiers[effect] = int(modifiers.get(effect, 0)) + int(value)
+		else:
+			modifiers[effect] = float(modifiers.get(effect, 0.0)) + float(value)
+	return modifiers
+
+func _get_upgrade_effect_value(effect: String, default_value: Variant) -> Variant:
+	return _get_upgrade_modifiers().get(effect, default_value)
+
+func _get_upgrade_definition(upgrade_id: String) -> Dictionary:
+	for upgrade in UPGRADE_DEFINITIONS:
+		if str(upgrade.get("id", "")) == upgrade_id:
+			return upgrade
+	return {}
+
+func _has_upgrade(upgrade_id: String) -> bool:
+	var purchased: Array = save_system.data.get("purchased_upgrades", [])
+	return purchased.has(upgrade_id)
 
 func _to_string_array(values: Array) -> Array[String]:
 	var result: Array[String] = []

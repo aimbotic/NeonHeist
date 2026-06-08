@@ -27,6 +27,7 @@ var ammo_current := 6
 var ammo_capacity := 6
 var reload_remaining := 0.0
 var reload_duration := 1.25
+var upgrade_modifiers := {}
 var _rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
@@ -55,26 +56,28 @@ func cast(program_id: String, origin: Vector2, direction: Vector2, enemies: Arra
 	var data: Dictionary = available_programs.get(program_id, {})
 	var profile := _gun_profile()
 	var cooldown_scale: float = profile.get("cooldown", 1.0) if _is_gun_program(program_id) else 1.0
-	cooldowns[program_id] = data.get("cooldown", 3.0) * cooldown_scale
+	cooldowns[program_id] = data.get("cooldown", 3.0) * cooldown_scale * float(upgrade_modifiers.get("ability_cooldown", 1.0))
 	if _is_gun_program(program_id):
 		_spend_round()
 	var aim := direction.normalized()
+	var gun_damage := float(upgrade_modifiers.get("gun_damage", 1.0)) if _is_gun_program(program_id) else 1.0
+	var veil_duration := float(upgrade_modifiers.get("veil_duration", 1.0))
 
 	match program_id:
 		"deadeye":
-			return _skillshot_program(origin, aim, enemies, 760.0 * profile.get("range", 1.0), 26.0 * profile.get("width", 1.0), 70.0 * profile.get("damage", 1.0), 0.16, Color(0.9, 0.68, 0.32), "deadeye")
+			return _skillshot_program(origin, aim, enemies, 760.0 * profile.get("range", 1.0), 26.0 * profile.get("width", 1.0), 70.0 * profile.get("damage", 1.0) * gun_damage, 0.16, Color(0.9, 0.68, 0.32), "deadeye")
 		"ricochet_shot":
-			return _area_program(origin, enemies, 410.0 * profile.get("radius", 1.0), 38.0 * profile.get("damage", 1.0), 0.22, Color(0.95, 0.36, 0.1), 300.0 * profile.get("chain", 1.0), "ricochet")
+			return _area_program(origin, enemies, 410.0 * profile.get("radius", 1.0), 38.0 * profile.get("damage", 1.0) * gun_damage, 0.22, Color(0.95, 0.36, 0.1), 300.0 * profile.get("chain", 1.0), "ricochet")
 		"dust_veil":
-			return _area_program(origin, enemies, 210.0, 8.0, 0.06, Color(0.78, 0.58, 0.34), 0.0, "veil", 1.25)
+			return _area_program(origin, enemies, 210.0, 8.0, 0.06, Color(0.78, 0.58, 0.34), 0.0, "veil", 1.25 * veil_duration)
 		"quickdraw":
-			return _skillshot_program(origin, aim, enemies, 420.0 * profile.get("range", 1.0), 34.0 * profile.get("width", 1.0), 60.0 * profile.get("damage", 1.0), 0.18, Color(1.0, 0.86, 0.46), "quickdraw")
+			return _skillshot_program(origin, aim, enemies, 420.0 * profile.get("range", 1.0), 34.0 * profile.get("width", 1.0), 60.0 * profile.get("damage", 1.0) * gun_damage, 0.18, Color(1.0, 0.86, 0.46), "quickdraw")
 		"duelist_lunge":
 			return _skillshot_program(origin, aim, enemies, 500.0, 38.0, 72.0, 0.2, Color(0.95, 0.12, 0.04), "duelist_lunge")
 		"fan_hammer":
-			return _area_program(origin, enemies, 290.0 * profile.get("radius", 1.0), 52.0 * profile.get("damage", 1.0), 0.24, Color(1.0, 0.42, 0.12), 0.0, "fan_hammer")
+			return _area_program(origin, enemies, 290.0 * profile.get("radius", 1.0), 52.0 * profile.get("damage", 1.0) * gun_damage, 0.24, Color(1.0, 0.42, 0.12), 0.0, "fan_hammer")
 		"ghost_step":
-			return _area_program(origin, enemies, 230.0, 18.0, 0.08, Color(0.86, 0.76, 0.58), 0.0, "veil", 1.85)
+			return _area_program(origin, enemies, 230.0, 18.0, 0.08, Color(0.86, 0.76, 0.58), 0.0, "veil", 1.85 * veil_duration)
 		_:
 			return _area_program(origin, enemies, 180.0, 24.0, 0.14, Color(1.0, 0.48, 0.08), 0.0, "")
 
@@ -119,6 +122,10 @@ func set_equipped_gun(gun_id: String) -> void:
 	if gun_profiles.has(gun_id):
 		equipped_gun = gun_id
 		_configure_ammo_for_gun()
+
+func set_upgrade_modifiers(modifiers: Dictionary) -> void:
+	upgrade_modifiers = modifiers.duplicate(true)
+	_configure_ammo_for_gun()
 
 func get_equipped_id(slot: int) -> String:
 	if slot < 0 or slot >= equipped.size():
@@ -180,8 +187,8 @@ func _gun_profile() -> Dictionary:
 
 func _configure_ammo_for_gun() -> void:
 	var profile := _gun_profile()
-	ammo_capacity = int(profile.get("ammo", 6))
-	reload_duration = float(profile.get("reload", 1.25))
+	ammo_capacity = int(profile.get("ammo", 6)) + int(upgrade_modifiers.get("ammo_capacity_bonus", 0))
+	reload_duration = float(profile.get("reload", 1.25)) * float(upgrade_modifiers.get("reload_speed", 1.0))
 	ammo_current = ammo_capacity
 	reload_remaining = 0.0
 
